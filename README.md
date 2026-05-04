@@ -38,17 +38,17 @@ PostgreSQL, semantic search, human review, and LLM-assisted reasoning.
 
 ## Core Features
 
-| Capability | MVP Direction |
-| --- | --- |
-| Voice and text capture | Fast inbox for spoken or written thoughts |
-| Audio transcription | Convert voice notes into analyzable text |
-| LLM classification | Identify layer, summary, tags, and likely context |
-| PostgreSQL knowledge store | Keep knowledge structured, queryable, and durable |
-| pgvector semantic search | Retrieve related thoughts using embeddings |
-| RAG-powered linking | Suggest meaningful links using retrieved context |
-| Vaults and projects | Organize knowledge by domain, client, mission, or initiative |
-| Human review | Approve, edit, or reject AI-generated suggestions |
-| Graph visualization | Start with 2D relationship maps, with 3D views planned later |
+| Capability                 | MVP Direction                                                |
+| -------------------------- | ------------------------------------------------------------ |
+| Voice and text capture     | Fast inbox for spoken or written thoughts                    |
+| Audio transcription        | Convert voice notes into analyzable text                     |
+| LLM classification         | Identify layer, summary, tags, and likely context            |
+| PostgreSQL knowledge store | Keep knowledge structured, queryable, and durable            |
+| pgvector semantic search   | Retrieve related thoughts using embeddings                   |
+| RAG-powered linking        | Suggest meaningful links using retrieved context             |
+| Vaults and projects        | Organize knowledge by domain, client, mission, or initiative |
+| Human review               | Approve, edit, or reject AI-generated suggestions            |
+| Graph visualization        | Start with 2D relationship maps, with 3D views planned later |
 
 ## Product Philosophy
 
@@ -60,12 +60,12 @@ structure, and eventually become execution.
 
 The first version is organized around four layers:
 
-| Layer | Meaning |
-| --- | --- |
-| **Intention** | Purpose, motivation, direction, and the reason behind the thought |
-| **Concept** | The idea itself, mental model, principle, or interpretation |
+| Layer         | Meaning                                                                            |
+| ------------- | ---------------------------------------------------------------------------------- |
+| **Intention** | Purpose, motivation, direction, and the reason behind the thought                  |
+| **Concept**   | The idea itself, mental model, principle, or interpretation                        |
 | **Structure** | How the idea becomes organized into projects, systems, processes, or relationships |
-| **Execution** | Concrete actions, tasks, deliverables, commitments, and next steps |
+| **Execution** | Concrete actions, tasks, deliverables, commitments, and next steps                 |
 
 The goal is not to force every thought into a rigid folder. The goal is to help
 each thought find its place in a larger system of meaning.
@@ -75,13 +75,13 @@ each thought find its place in a larger system of meaning.
 IdeaHub will use a modern TypeScript stack with a dedicated backend, a polished
 React frontend, and PostgreSQL as the source of truth.
 
-| Layer | Planned Stack |
-| --- | --- |
-| Frontend | React, Vite, TypeScript, Tailwind CSS, shadcn/ui, Radix UI |
-| Backend | TypeScript, Fastify, Drizzle ORM |
-| Database | PostgreSQL, pgvector |
-| AI | LLM providers, embeddings, RAG pipeline |
-| Jobs | Async processing for transcription, embeddings, and analysis |
+| Layer         | Planned Stack                                                 |
+| ------------- | ------------------------------------------------------------- |
+| Frontend      | React, Vite, TypeScript, Tailwind CSS, shadcn/ui, Radix UI    |
+| Backend       | TypeScript, Fastify, Drizzle ORM                              |
+| Database      | PostgreSQL, pgvector                                          |
+| AI            | LLM providers, embeddings, RAG pipeline                       |
+| Jobs          | Async processing for transcription, embeddings, and analysis  |
 | Product model | Vaults, projects, entries, versions, tags, links, suggestions |
 
 ```mermaid
@@ -115,13 +115,13 @@ on vague model memory.
 
 ## MVP Roadmap
 
-| Phase | Focus | Outcome |
-| --- | --- | --- |
-| 1 | README and project foundation | Define the vision, stack, and product direction |
-| 2 | Database schema and API | Model vaults, projects, entries, versions, tags, links, and jobs |
-| 3 | Capture inbox and analysis pipeline | Accept text/audio, transcribe, embed, and analyze entries |
-| 4 | Review workflow and semantic links | Approve AI suggestions and build reliable knowledge connections |
-| 5 | Graph visualization | Explore entries and relationships through an interactive graph |
+| Phase | Focus                               | Outcome                                                          |
+| ----- | ----------------------------------- | ---------------------------------------------------------------- |
+| 1     | README and project foundation       | Define the vision, stack, and product direction                  |
+| 2     | Database schema and API             | Model vaults, projects, entries, versions, tags, links, and jobs |
+| 3     | Capture inbox and analysis pipeline | Accept text/audio, transcribe, embed, and analyze entries        |
+| 4     | Review workflow and semantic links  | Approve AI suggestions and build reliable knowledge connections  |
+| 5     | Graph visualization                 | Explore entries and relationships through an interactive graph   |
 
 Future versions may explore multidimensional views inspired by layers, cubes,
 molecular structures, and dynamic project states. The MVP will start with the
@@ -161,15 +161,15 @@ These commands will become active as the project foundation is implemented.
 The final variable names may change during implementation, but the MVP is
 expected to need the following configuration:
 
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `OPENAI_API_KEY` | Optional LLM, embeddings, or transcription provider |
-| `ANTHROPIC_API_KEY` | Optional LLM provider |
-| `LLM_PROVIDER` | Default model provider selection |
-| `EMBEDDING_MODEL` | Embedding model used for semantic search |
-| `SESSION_SECRET` | Application session signing secret |
-| `STORAGE_DRIVER` | Local or external file storage configuration |
+| Variable            | Purpose                                             |
+| ------------------- | --------------------------------------------------- |
+| `DATABASE_URL`      | PostgreSQL connection string                        |
+| `OPENAI_API_KEY`    | Optional LLM, embeddings, or transcription provider |
+| `ANTHROPIC_API_KEY` | Optional LLM provider                               |
+| `LLM_PROVIDER`      | Default model provider selection                    |
+| `EMBEDDING_MODEL`   | Embedding model used for semantic search            |
+| `SESSION_SECRET`    | Application session signing secret                  |
+| `STORAGE_DRIVER`    | Local or external file storage configuration        |
 
 ## Project Status
 
@@ -189,4 +189,3 @@ focused implementation work aligned with the roadmap.
 ## License
 
 License: **TBD**.
-

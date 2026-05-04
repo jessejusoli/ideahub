@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ideahub-web
+  namespace: ideahub
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ideahub-web
+  template:
+    metadata:
+      labels:
+        app: ideahub-web
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/OWNER/ideahub-web:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ideahub-web
+  namespace: ideahub
+spec:
+  selector:
+    app: ideahub-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

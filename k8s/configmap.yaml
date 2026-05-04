@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ideahub-config
+  namespace: ideahub
+data:
+  API_HOST: "0.0.0.0"
+  API_PORT: "3333"
+  WEB_ORIGIN: "https://ideahub.example.com"
+  IDEAHUB_API_BASE_URL: "http://ideahub-api:3333/api"
+  LLM_PROVIDER: "openai"
+  EMBEDDING_MODEL: "text-embedding-3-small"

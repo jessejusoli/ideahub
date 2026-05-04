@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ideahub-postgres
+  namespace: ideahub
+spec:
+  serviceName: ideahub-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ideahub-postgres
+  template:
+    metadata:
+      labels:
+        app: ideahub-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg17
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: ideahub
+            - name: POSTGRES_USER
+              value: ideahub
+            - name: POSTGRES_PASSWORD
+              value: change-me
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ideahub-postgres
+  namespace: ideahub
+spec:
+  selector:
+    app: ideahub-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432

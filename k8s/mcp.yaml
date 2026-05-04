@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ideahub-mcp
+  namespace: ideahub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ideahub-mcp
+  template:
+    metadata:
+      labels:
+        app: ideahub-mcp
+    spec:
+      containers:
+        - name: mcp
+          image: ghcr.io/OWNER/ideahub-mcp:latest
+          envFrom:
+            - configMapRef:
+                name: ideahub-config
