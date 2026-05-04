@@ -59,6 +59,10 @@ The foundation now includes a working capture path:
 - Capture text entries into PostgreSQL.
 - Create version `1` for each captured entry.
 - Queue an `analysis` job for each capture.
+- Process queued analysis jobs with deterministic local embeddings.
+- Store pgvector chunks and retrieve related context for semantic search.
+- Generate pending suggestions for summary, layer, tags, and links.
+- Approve or reject suggestions through the review API.
 - Use the web capture workspace against the Fastify API.
 
 ## Product Philosophy
@@ -103,7 +107,7 @@ flowchart LR
     C --> D
     D --> E[(PostgreSQL + pgvector)]
     E --> F[Semantic Retrieval]
-    F --> G[LLM Analysis]
+    F --> G[Local Analysis Now, LLM Analysis Later]
     G --> H[Suggested Tags, Layers, Projects, and Links]
     H --> I[Human Review]
     I --> J[Knowledge Graph]
@@ -111,18 +115,22 @@ flowchart LR
 
 ## RAG-First Linking
 
-IdeaHub will not ask an LLM to invent relationships from nothing. The planned
-analysis flow is retrieval-first:
+IdeaHub will not ask an LLM to invent relationships from nothing. The analysis
+flow is retrieval-first:
 
 1. Store the captured entry in PostgreSQL.
 2. Generate embeddings for the entry and its chunks.
 3. Search existing knowledge with pgvector.
-4. Send the current entry plus retrieved context to an LLM.
+4. Send the current entry plus retrieved context to an analyzer.
 5. Generate structured suggestions for tags, layers, projects, and links.
 6. Let the user approve, edit, or reject the suggestions.
 
 This keeps the system grounded in your actual knowledge base instead of relying
 on vague model memory.
+
+The current MVP uses a deterministic local analyzer so the workflow can be built,
+tested, and containerized without external AI credentials. LLM providers will
+replace that analyzer behind the same review-first contract.
 
 ## MVP Roadmap
 
@@ -140,32 +148,36 @@ practical foundation required to make those views meaningful.
 
 ## Getting Started
 
-The codebase is in early MVP development. The initial implementation will follow
-this planned workspace shape:
+The codebase is in early MVP development and uses a TypeScript monorepo:
 
 ```bash
 apps/
   api/
+  mcp/
   web/
 packages/
   shared/
 ```
 
-Planned local setup:
+Local setup:
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-Planned database setup:
+Database setup:
 
 ```bash
 docker compose up -d
 pnpm db:migrate
 ```
 
-These commands will become active as the project foundation is implemented.
+Process one queued analysis job:
+
+```bash
+pnpm analysis:run-once
+```
 
 ## Environment Variables
 

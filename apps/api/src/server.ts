@@ -6,6 +6,7 @@ import { registerOpenApi } from "./openapi";
 import { registerEntryRoutes } from "./routes/entries";
 import { registerGraphRoutes } from "./routes/graph";
 import { registerHealthRoutes } from "./routes/health";
+import { registerJobRoutes } from "./routes/jobs";
 import { registerProjectRoutes } from "./routes/projects";
 import { registerSearchRoutes } from "./routes/search";
 import { registerVaultRoutes } from "./routes/vaults";
@@ -29,6 +30,7 @@ export function buildServer() {
   void app.register(registerVaultRoutes, { prefix: "/api" });
   void app.register(registerProjectRoutes, { prefix: "/api" });
   void app.register(registerEntryRoutes, { prefix: "/api" });
+  void app.register(registerJobRoutes, { prefix: "/api" });
   void app.register(registerSearchRoutes, { prefix: "/api" });
   void app.register(registerGraphRoutes, { prefix: "/api" });
 

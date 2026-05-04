@@ -13,15 +13,16 @@ IdeaHub uses OpenAPI 3.1 as the canonical API contract. Runtime validation is ha
 
 ## Current MVP Resources
 
-| Resource | Routes                                                                                                       | Status                                      |
-| -------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
-| Health   | `GET /api/health`                                                                                            | Implemented                                 |
-| Vaults   | `GET /api/vaults`, `POST /api/vaults`                                                                        | Implemented with development user ownership |
-| Projects | `GET /api/projects`, `POST /api/projects`                                                                    | Implemented with vault scoping              |
-| Entries  | `POST /api/entries`, `GET /api/entries/:id`, `POST /api/entries/:id/analyze`, `POST /api/entries/:id/review` | Text capture and read implemented           |
-| Audio    | `POST /api/entries/audio`                                                                                    | Contract only, returns `501`                |
-| Search   | `GET /api/search/semantic`                                                                                   | Contract only, returns empty results        |
-| Graph    | `GET /api/graph`                                                                                             | Contract only, returns empty graph          |
+| Resource | Routes                                                                                                       | Status                                        |
+| -------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| Health   | `GET /api/health`                                                                                            | Implemented                                   |
+| Vaults   | `GET /api/vaults`, `POST /api/vaults`                                                                        | Implemented with development user ownership   |
+| Projects | `GET /api/projects`, `POST /api/projects`                                                                    | Implemented with vault scoping                |
+| Entries  | `POST /api/entries`, `GET /api/entries/:id`, `POST /api/entries/:id/analyze`, `POST /api/entries/:id/review` | Capture, retrieval, queueing, and review flow |
+| Jobs     | `POST /api/jobs/process-next`, `POST /api/jobs/:id/process`                                                  | Deterministic local analysis processing       |
+| Audio    | `POST /api/entries/audio`                                                                                    | Contract only, returns `501`                  |
+| Search   | `GET /api/search/semantic`                                                                                   | pgvector-backed semantic search               |
+| Graph    | `GET /api/graph`                                                                                             | Contract only, returns empty graph            |
 
 ## Capture Contract
 
@@ -32,6 +33,38 @@ Creating an entry now performs the first real product workflow:
 3. Insert `entry_versions` version `1` using the captured content.
 4. Insert an `llm_jobs` row with `type = analysis` and `status = queued`.
 5. Return the entry and queued job to the client.
+
+## Analysis Contract
+
+The MVP includes a deterministic local analysis pipeline so the product workflow can be validated before external LLM credentials exist.
+
+1. `POST /api/jobs/process-next` selects the oldest queued analysis job.
+2. The API chunks the entry content and writes 1536-dimensional local embeddings to PostgreSQL.
+3. The API retrieves semantically related chunks from the same vault through pgvector.
+4. The API creates a pending `analysis_suggestions` record with summary, layer, tags, candidate links, confidence, rationale, and retrieved context.
+5. The entry status becomes `review`.
+6. `POST /api/entries/:id/review` approves or rejects the suggestion.
+7. Approval consolidates summary, layer, AI tags, and candidate links into canonical tables.
+
+The local analyzer is a scaffold for future LLM-backed RAG. It must not be treated as production-grade intelligence.
+
+## Semantic Search
+
+`GET /api/search/semantic?q=...&vaultId=...` embeds the query with the same local deterministic embedding model and ranks matching chunks with pgvector cosine distance. This keeps the public API stable while the embedding provider is still replaceable.
+
+## Job Runner
+
+For local development, one queued analysis job can also be processed from the CLI:
+
+```bash
+pnpm analysis:run-once
+```
+
+or:
+
+```bash
+make analysis-run-once
+```
 
 ## Conventions
 

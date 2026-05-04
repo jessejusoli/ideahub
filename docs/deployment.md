@@ -42,6 +42,14 @@ Build locally:
 make docker-build IMAGE_NAMESPACE=local IMAGE_TAG=dev
 ```
 
+Build one service at a time when working in a small development environment:
+
+```bash
+make docker-build-api IMAGE_NAMESPACE=local IMAGE_TAG=dev
+make docker-build-web IMAGE_NAMESPACE=local IMAGE_TAG=dev
+make docker-build-mcp IMAGE_NAMESPACE=local IMAGE_TAG=dev
+```
+
 To build the web image for a non-local API, pass the build argument directly:
 
 ```bash
@@ -58,6 +66,10 @@ CI publishes images to GHCR on `main` and version tags:
 - `ghcr.io/<owner>/ideahub-api`
 - `ghcr.io/<owner>/ideahub-web`
 - `ghcr.io/<owner>/ideahub-mcp`
+
+The CI quality job also validates formatting, linting, typechecking, tests,
+builds, OpenAPI generation, TypeDoc reference generation, Compose syntax, and
+Kubernetes manifests before the image publishing job runs.
 
 ## Kubernetes
 

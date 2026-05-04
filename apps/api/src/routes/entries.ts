@@ -1,10 +1,12 @@
 import {
   analyzeEntrySchema,
   createEntrySchema,
+  layers,
+  linkTypes,
   reviewSuggestionSchema,
   uuidSchema
 } from "@ideahub/shared";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { db } from "../db/client";
@@ -116,8 +118,28 @@ const reviewEntryResponseSchema = z.object({
   entryId: z.string().uuid(),
   suggestionId: z.string().uuid(),
   status: z.enum(["pending", "approved", "rejected"]),
-  editedPayload: z.record(z.string(), z.unknown()).nullable()
+  editedPayload: z.record(z.string(), z.unknown()).nullable(),
+  applied: z.boolean()
 });
+
+const suggestionPayloadSchema = z
+  .object({
+    layer: z.enum(layers).optional(),
+    summary: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    links: z
+      .array(
+        z.object({
+          targetEntryId: z.string().uuid(),
+          type: z.enum(linkTypes).default("relates_to"),
+          strength: z.number().min(0).max(1),
+          justification: z.string(),
+          confidence: z.number().min(0).max(1)
+        })
+      )
+      .optional()
+  })
+  .passthrough();
 
 function serializeEntry(entry: typeof entries.$inferSelect) {
   return {
@@ -355,15 +377,142 @@ export const registerEntryRoutes: FastifyPluginAsyncZod = async (app) => {
         params: paramsSchema,
         body: reviewSuggestionSchema,
         response: {
-          200: reviewEntryResponseSchema
+          200: reviewEntryResponseSchema,
+          404: errorResponseSchema
         }
       }
     },
-    async (request) => ({
-      entryId: request.params.id,
-      suggestionId: request.body.suggestionId,
-      status: request.body.status,
-      editedPayload: request.body.editedPayload ?? null
-    })
+    async (request, reply) => {
+      const entry = await db.query.entries.findFirst({
+        where: eq(entries.id, request.params.id)
+      });
+
+      if (!entry) {
+        return reply.code(404).send({
+          code: "ENTRY_NOT_FOUND",
+          message: "Entry not found."
+        });
+      }
+
+      const suggestion = await db.query.analysisSuggestions.findFirst({
+        where: and(
+          eq(analysisSuggestions.id, request.body.suggestionId),
+          eq(analysisSuggestions.entryId, entry.id)
+        )
+      });
+
+      if (!suggestion) {
+        return reply.code(404).send({
+          code: "SUGGESTION_NOT_FOUND",
+          message: "Suggestion not found for this entry."
+        });
+      }
+
+      const editedPayload = request.body.editedPayload ?? null;
+      const payload = suggestionPayloadSchema.parse(editedPayload ?? suggestion.payload);
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(analysisSuggestions)
+          .set({
+            status: request.body.status,
+            payload,
+            reviewedAt: new Date()
+          })
+          .where(eq(analysisSuggestions.id, suggestion.id));
+
+        if (request.body.status !== "approved") {
+          return;
+        }
+
+        await tx
+          .update(entries)
+          .set({
+            summary: payload.summary ?? entry.summary,
+            layer: payload.layer ?? entry.layer,
+            status: "published",
+            updatedAt: new Date()
+          })
+          .where(eq(entries.id, entry.id));
+
+        for (const tagName of payload.tags ?? []) {
+          const name = tagName.trim().toLowerCase().slice(0, 80);
+
+          if (!name) {
+            continue;
+          }
+
+          const [tag] = await tx
+            .insert(tags)
+            .values({
+              vaultId: entry.vaultId,
+              name,
+              source: "ai"
+            })
+            .onConflictDoUpdate({
+              target: [tags.vaultId, tags.name],
+              set: {
+                source: "ai",
+                updatedAt: new Date()
+              }
+            })
+            .returning();
+
+          if (!tag) {
+            continue;
+          }
+
+          await tx
+            .insert(entryTags)
+            .values({
+              entryId: entry.id,
+              tagId: tag.id,
+              confidence: "0.700",
+              approved: true
+            })
+            .onConflictDoUpdate({
+              target: [entryTags.entryId, entryTags.tagId],
+              set: {
+                confidence: "0.700",
+                approved: true
+              }
+            });
+        }
+
+        for (const link of payload.links ?? []) {
+          if (link.targetEntryId === entry.id) {
+            continue;
+          }
+
+          await tx
+            .insert(links)
+            .values({
+              vaultId: entry.vaultId,
+              sourceEntryId: entry.id,
+              targetEntryId: link.targetEntryId,
+              type: link.type,
+              strength: link.strength.toFixed(3),
+              justification: link.justification,
+              createdBy: "ai"
+            })
+            .onConflictDoUpdate({
+              target: [links.sourceEntryId, links.targetEntryId, links.type],
+              set: {
+                strength: link.strength.toFixed(3),
+                justification: link.justification,
+                updatedAt: new Date()
+              }
+            });
+        }
+      });
+
+      return {
+        entryId: request.params.id,
+        suggestionId: request.body.suggestionId,
+        status: request.body.status,
+        editedPayload,
+        applied: request.body.status === "approved"
+      };
+    }
   );
 };

@@ -4,7 +4,7 @@ IMAGE_REGISTRY ?= ghcr.io
 IMAGE_NAMESPACE ?= ideahub
 IMAGE_TAG ?= local
 
-.PHONY: install dev test typecheck build lint format format-check docs-generate openapi-check db-up db-migrate db-studio docker-build compose-up compose-prod-up compose-down k8s-dry-run
+.PHONY: install dev test typecheck build lint format format-check docs-generate openapi-check analysis-run-once db-up db-migrate db-studio docker-build docker-build-api docker-build-web docker-build-mcp compose-up compose-prod-up compose-down compose-config compose-prod-config k8s-dry-run
 
 install:
 	pnpm install
@@ -36,6 +36,9 @@ docs-generate:
 openapi-check:
 	pnpm openapi:check
 
+analysis-run-once:
+	pnpm analysis:run-once
+
 db-up:
 	docker compose up -d postgres
 
@@ -46,8 +49,17 @@ db-studio:
 	pnpm db:studio
 
 docker-build:
+	$(MAKE) docker-build-api
+	$(MAKE) docker-build-web
+	$(MAKE) docker-build-mcp
+
+docker-build-api:
 	docker build -f apps/api/Dockerfile -t $(IMAGE_REGISTRY)/$(IMAGE_NAMESPACE)/ideahub-api:$(IMAGE_TAG) .
+
+docker-build-web:
 	docker build -f apps/web/Dockerfile -t $(IMAGE_REGISTRY)/$(IMAGE_NAMESPACE)/ideahub-web:$(IMAGE_TAG) .
+
+docker-build-mcp:
 	docker build -f apps/mcp/Dockerfile -t $(IMAGE_REGISTRY)/$(IMAGE_NAMESPACE)/ideahub-mcp:$(IMAGE_TAG) .
 
 compose-up:
@@ -59,6 +71,12 @@ compose-prod-up:
 compose-down:
 	docker compose down
 	docker compose -f docker-compose.prod.yml down
+
+compose-config:
+	docker compose config --quiet
+
+compose-prod-config:
+	docker compose -f docker-compose.prod.yml config --quiet
 
 k8s-dry-run:
 	@if kubectl cluster-info >/dev/null 2>&1; then \

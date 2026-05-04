@@ -55,6 +55,18 @@ jobs:
       - name: OpenAPI Check
         run: pnpm openapi:check
 
+      - name: Generate Reference Docs
+        run: pnpm docs:generate
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Validate Production Compose
+        run: docker compose -f docker-compose.prod.yml config --quiet
+
+      - name: Validate Kubernetes Manifests
+        run: make k8s-dry-run
+
   images:
     name: Docker Images
     runs-on: ubuntu-latest

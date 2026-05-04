@@ -15,6 +15,7 @@
     "format:check": "prettier --check .",
     "docs:generate": "typedoc",
     "openapi:check": "pnpm --filter @ideahub/api openapi:check",
+    "analysis:run-once": "pnpm --filter @ideahub/api analysis:run-once",
     "db:generate": "pnpm --filter @ideahub/api db:generate",
     "db:migrate": "pnpm --filter @ideahub/api db:migrate",
     "db:studio": "pnpm --filter @ideahub/api db:studio"

@@ -22,7 +22,10 @@ export function registerOpenApi(app: FastifyInstance) {
       ],
       tags: [
         { name: "Health", description: "Service health and readiness." },
+        { name: "Vaults", description: "Knowledge vault ownership and scoping." },
+        { name: "Projects", description: "Vault-scoped project and subproject organization." },
         { name: "Entries", description: "Thought capture, analysis, and review workflows." },
+        { name: "Jobs", description: "Async processing hooks for analysis and ingestion work." },
         { name: "Search", description: "Semantic retrieval and RAG entry points." },
         { name: "Graph", description: "Knowledge graph retrieval." }
       ]

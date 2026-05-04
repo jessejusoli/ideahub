@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "openapi:check": "tsx src/scripts/check-openapi.ts",
+    "analysis:run-once": "tsx src/scripts/process-next-analysis-job.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio"
