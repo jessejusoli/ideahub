@@ -53,6 +53,22 @@ export const createEntrySchema = z.object({
 
 export type CreateEntryInput = z.infer<typeof createEntrySchema>;
 
+export const createVaultSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(500).optional()
+});
+
+export type CreateVaultInput = z.infer<typeof createVaultSchema>;
+
+export const createProjectSchema = z.object({
+  vaultId: uuidSchema,
+  parentProjectId: uuidSchema.optional(),
+  name: z.string().trim().min(1).max(140),
+  description: z.string().trim().max(500).optional()
+});
+
+export type CreateProjectInput = z.infer<typeof createProjectSchema>;
+
 export const analyzeEntrySchema = z.object({
   force: z.boolean().default(false)
 });

@@ -6,7 +6,9 @@ import { registerOpenApi } from "./openapi";
 import { registerEntryRoutes } from "./routes/entries";
 import { registerGraphRoutes } from "./routes/graph";
 import { registerHealthRoutes } from "./routes/health";
+import { registerProjectRoutes } from "./routes/projects";
 import { registerSearchRoutes } from "./routes/search";
+import { registerVaultRoutes } from "./routes/vaults";
 
 export function buildServer() {
   const app = Fastify({
@@ -24,6 +26,8 @@ export function buildServer() {
   registerOpenApi(app);
 
   void app.register(registerHealthRoutes, { prefix: "/api" });
+  void app.register(registerVaultRoutes, { prefix: "/api" });
+  void app.register(registerProjectRoutes, { prefix: "/api" });
   void app.register(registerEntryRoutes, { prefix: "/api" });
   void app.register(registerSearchRoutes, { prefix: "/api" });
   void app.register(registerGraphRoutes, { prefix: "/api" });

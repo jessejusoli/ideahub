@@ -8,5 +8,6 @@ data:
   API_PORT: "3333"
   WEB_ORIGIN: "https://ideahub.example.com"
   IDEAHUB_API_BASE_URL: "http://ideahub-api:3333/api"
+  VITE_API_BASE_URL: "https://ideahub.example.com/api"
   LLM_PROVIDER: "openai"
   EMBEDDING_MODEL: "text-embedding-3-small"

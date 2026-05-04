@@ -50,6 +50,17 @@ PostgreSQL, semantic search, human review, and LLM-assisted reasoning.
 | Human review               | Approve, edit, or reject AI-generated suggestions            |
 | Graph visualization        | Start with 2D relationship maps, with 3D views planned later |
 
+## Current MVP Progress
+
+The foundation now includes a working capture path:
+
+- Create and list vaults.
+- Create and list projects inside a vault.
+- Capture text entries into PostgreSQL.
+- Create version `1` for each captured entry.
+- Queue an `analysis` job for each capture.
+- Use the web capture workspace against the Fastify API.
+
 ## Product Philosophy
 
 > Not just notes. Not just tasks. A living knowledge system.

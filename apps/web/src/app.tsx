@@ -1,175 +1,307 @@
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BrainCircuit,
-  GitBranch,
+  CheckCircle2,
+  Database,
+  FolderTree,
   Layers3,
-  Mic,
+  Loader2,
   Network,
-  SearchCheck,
-  Sparkles
+  Plus,
+  SendHorizonal
 } from "lucide-react";
 import { layers, layerLabels } from "@ideahub/shared";
 import { Button } from "./components/ui/button";
-
-const capabilities = [
-  {
-    title: "Capture without friction",
-    description:
-      "Drop voice notes or written thoughts into a focused inbox before the context evaporates.",
-    icon: Mic
-  },
-  {
-    title: "Classify the meaning",
-    description:
-      "Use LLM analysis to detect layer, summary, tags, project context, and next-step signals.",
-    icon: Layers3
-  },
-  {
-    title: "Retrieve before reasoning",
-    description:
-      "Search PostgreSQL and pgvector first, then let the LLM reason over grounded context.",
-    icon: SearchCheck
-  },
-  {
-    title: "Connect with confidence",
-    description: "Suggest semantic links with strength, type, justification, and human review.",
-    icon: Network
-  }
-];
-
-const roadmap = [
-  "Project foundation",
-  "Database schema and API",
-  "Capture inbox",
-  "Review workflow",
-  "Knowledge graph"
-];
+import {
+  createEntry,
+  createProject,
+  createVault,
+  listProjects,
+  listVaults,
+  type CapturedEntry
+} from "./lib/api";
 
 export function App() {
+  const queryClient = useQueryClient();
+  const [selectedVaultId, setSelectedVaultId] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [vaultName, setVaultName] = useState("Personal Knowledge");
+  const [projectName, setProjectName] = useState("IdeaHub MVP");
+  const [entryTitle, setEntryTitle] = useState("");
+  const [entryContent, setEntryContent] = useState("");
+  const [captures, setCaptures] = useState<CapturedEntry[]>([]);
+
+  const vaultsQuery = useQuery({
+    queryKey: ["vaults"],
+    queryFn: listVaults
+  });
+
+  const activeVaultId = selectedVaultId || vaultsQuery.data?.vaults[0]?.id || "";
+
+  const projectsQuery = useQuery({
+    queryKey: ["projects", activeVaultId],
+    queryFn: () => listProjects(activeVaultId),
+    enabled: Boolean(activeVaultId)
+  });
+
+  const activeProjectId = selectedProjectId || projectsQuery.data?.projects[0]?.id || "";
+
+  const createVaultMutation = useMutation({
+    mutationFn: createVault,
+    onSuccess: async (vault) => {
+      setSelectedVaultId(vault.id);
+      await queryClient.invalidateQueries({ queryKey: ["vaults"] });
+    }
+  });
+
+  const createProjectMutation = useMutation({
+    mutationFn: createProject,
+    onSuccess: async (project) => {
+      setSelectedProjectId(project.id);
+      await queryClient.invalidateQueries({ queryKey: ["projects", project.vaultId] });
+    }
+  });
+
+  const createEntryMutation = useMutation({
+    mutationFn: createEntry,
+    onSuccess: (capture) => {
+      setCaptures((current) => [capture, ...current]);
+      setEntryTitle("");
+      setEntryContent("");
+    }
+  });
+
+  const statusText = useMemo(() => {
+    if (createEntryMutation.isPending) {
+      return "Capturing thought and queueing analysis";
+    }
+
+    if (captures.length > 0) {
+      return "Latest thought captured";
+    }
+
+    return "Ready for capture";
+  }, [captures.length, createEntryMutation.isPending]);
+
+  const canCapture = Boolean(activeVaultId && entryContent.trim().length > 0);
+
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto grid min-h-[620px] max-w-7xl gap-10 px-6 py-10 lg:grid-cols-[1.08fr_0.92fr] lg:px-8">
-          <div className="flex flex-col justify-center">
-            <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800">
-              <Sparkles className="h-4 w-4" />
-              MVP in development
-            </div>
-            <h1 className="max-w-4xl text-5xl font-semibold leading-tight tracking-normal text-slate-950 md:text-6xl">
-              IdeaHub
-            </h1>
-            <p className="mt-5 max-w-2xl text-xl leading-8 text-slate-700">
-              An intelligent second brain for capturing, connecting, and evolving your thoughts.
-            </p>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
-              Built for people whose ideas move across projects, clients, strategies, and execution.
-              Capture the raw thought, classify the signal, retrieve related context, and turn
-              scattered knowledge into a living system.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button>
+        <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-8 lg:px-8">
+          <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+            <div>
+              <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800">
                 <BrainCircuit className="h-4 w-4" />
-                Open capture inbox
-              </Button>
-              <Button variant="secondary">
-                <GitBranch className="h-4 w-4" />
-                View roadmap
-              </Button>
+                Intelligent capture workspace
+              </div>
+              <h1 className="text-4xl font-semibold leading-tight tracking-normal text-slate-950">
+                IdeaHub
+              </h1>
+              <p className="mt-2 max-w-2xl text-base leading-7 text-slate-600">
+                Capture a thought, place it in a vault/project, and queue the first analysis job
+                against PostgreSQL.
+              </p>
             </div>
-          </div>
-
-          <div className="flex items-center">
-            <div className="w-full rounded-lg border border-slate-200 bg-slate-950 p-4 shadow-xl">
-              <div className="mb-4 flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-red-400" />
-                <div className="h-3 w-3 rounded-full bg-amber-400" />
-                <div className="h-3 w-3 rounded-full bg-emerald-400" />
+            <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:min-w-72">
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                {createEntryMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-700" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                )}
+                {statusText}
               </div>
-              <div className="space-y-3 rounded-md bg-slate-900 p-5 font-mono text-sm text-slate-100">
-                <p className="text-emerald-300">capture.entry</p>
-                <p>source: voice</p>
-                <p>layer: pending</p>
-                <p>retrieval: pgvector.search()</p>
-                <p>analysis: rag.classify()</p>
-                <p className="text-sky-300">suggestions: tags + projects + links</p>
-                <p className="text-amber-300">review: human approval required</p>
-              </div>
+              <p className="text-xs leading-5 text-slate-500">
+                {captures.length} captured entr{captures.length === 1 ? "y" : "ies"} in this
+                session.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-14 lg:px-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {capabilities.map((capability) => (
-            <article
-              key={capability.title}
-              className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+      <section className="mx-auto grid max-w-7xl gap-6 px-6 py-8 lg:grid-cols-[360px_1fr] lg:px-8">
+        <aside className="space-y-4">
+          <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Database className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-lg font-semibold text-slate-950">Vault</h2>
+            </div>
+            <label className="text-sm font-medium text-slate-700" htmlFor="vault-select">
+              Active vault
+            </label>
+            <select
+              id="vault-select"
+              className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+              value={activeVaultId}
+              onChange={(event) => setSelectedVaultId(event.target.value)}
             >
-              <capability.icon className="h-6 w-6 text-emerald-600" />
-              <h2 className="mt-4 text-lg font-semibold text-slate-950">{capability.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{capability.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="border-y border-slate-200 bg-white">
-        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-14 lg:grid-cols-[0.8fr_1.2fr] lg:px-8">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-normal text-emerald-700">
-              Four-layer model
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold text-slate-950">
-              From raw thought to concrete execution.
-            </h2>
-            <p className="mt-4 text-base leading-7 text-slate-600">
-              IdeaHub starts with a simple mental model that keeps knowledge flexible without making
-              it vague.
-            </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {layers.map((layer) => (
-              <div key={layer} className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-                <h3 className="text-base font-semibold text-slate-950">{layerLabels[layer]}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {layer === "intention" &&
-                    "Purpose, motivation, direction, and the reason behind the thought."}
-                  {layer === "concept" &&
-                    "Ideas, principles, mental models, interpretations, and strategic meaning."}
-                  {layer === "structure" &&
-                    "Projects, systems, processes, architecture, categories, and relationships."}
-                  {layer === "execution" &&
-                    "Tasks, deliverables, concrete actions, commitments, and next steps."}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-7xl px-6 py-14 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[1fr_1fr]">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-normal text-emerald-700">
-              Implementation path
-            </p>
-            <h2 className="mt-3 text-3xl font-semibold text-slate-950">
-              A practical route to the intelligent MVP.
-            </h2>
-          </div>
-          <ol className="space-y-3">
-            {roadmap.map((item, index) => (
-              <li
-                key={item}
-                className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4"
+              {vaultsQuery.data?.vaults.map((vault) => (
+                <option key={vault.id} value={vault.id}>
+                  {vault.name}
+                </option>
+              ))}
+            </select>
+            <div className="mt-4 flex gap-2">
+              <input
+                className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 px-3 text-sm"
+                value={vaultName}
+                onChange={(event) => setVaultName(event.target.value)}
+                placeholder="Vault name"
+              />
+              <Button
+                size="icon"
+                variant="secondary"
+                title="Create vault"
+                onClick={() => createVaultMutation.mutate({ name: vaultName })}
+                disabled={createVaultMutation.isPending || vaultName.trim().length === 0}
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-emerald-600 text-sm font-semibold text-white">
-                  {index + 1}
-                </span>
-                <span className="font-medium text-slate-800">{item}</span>
-              </li>
-            ))}
-          </ol>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <FolderTree className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-lg font-semibold text-slate-950">Project</h2>
+            </div>
+            <label className="text-sm font-medium text-slate-700" htmlFor="project-select">
+              Active project
+            </label>
+            <select
+              id="project-select"
+              className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+              value={activeProjectId}
+              onChange={(event) => setSelectedProjectId(event.target.value)}
+              disabled={!activeVaultId}
+            >
+              {projectsQuery.data?.projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            <div className="mt-4 flex gap-2">
+              <input
+                className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 px-3 text-sm"
+                value={projectName}
+                onChange={(event) => setProjectName(event.target.value)}
+                placeholder="Project name"
+              />
+              <Button
+                size="icon"
+                variant="secondary"
+                title="Create project"
+                onClick={() =>
+                  createProjectMutation.mutate({
+                    vaultId: activeVaultId,
+                    name: projectName
+                  })
+                }
+                disabled={
+                  createProjectMutation.isPending ||
+                  !activeVaultId ||
+                  projectName.trim().length === 0
+                }
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Layers3 className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-lg font-semibold text-slate-950">Layers</h2>
+            </div>
+            <div className="space-y-2">
+              {layers.map((layer) => (
+                <div
+                  key={layer}
+                  className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                >
+                  <span className="font-medium text-slate-800">{layerLabels[layer]}</span>
+                  <span className="text-slate-500">pending AI</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <div className="space-y-6">
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <SendHorizonal className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-lg font-semibold text-slate-950">Capture</h2>
+            </div>
+            <input
+              className="mb-3 h-11 w-full rounded-md border border-slate-300 px-3 text-sm"
+              value={entryTitle}
+              onChange={(event) => setEntryTitle(event.target.value)}
+              placeholder="Optional title"
+            />
+            <textarea
+              className="min-h-56 w-full resize-y rounded-md border border-slate-300 p-3 text-sm leading-6"
+              value={entryContent}
+              onChange={(event) => setEntryContent(event.target.value)}
+              placeholder="Capture the thought here..."
+            />
+            <div className="mt-4 flex justify-end">
+              <Button
+                onClick={() =>
+                  createEntryMutation.mutate({
+                    vaultId: activeVaultId,
+                    projectId: activeProjectId || undefined,
+                    title: entryTitle.trim() || undefined,
+                    content: entryContent
+                  })
+                }
+                disabled={!canCapture || createEntryMutation.isPending}
+              >
+                {createEntryMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <SendHorizonal className="h-4 w-4" />
+                )}
+                Capture thought
+              </Button>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Network className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-lg font-semibold text-slate-950">Session captures</h2>
+            </div>
+            <div className="space-y-3">
+              {captures.length === 0 ? (
+                <p className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                  Captured entries will appear here after they are written to PostgreSQL.
+                </p>
+              ) : (
+                captures.map((capture) => (
+                  <article
+                    key={capture.entry.id}
+                    className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                      <h3 className="font-semibold text-slate-950">
+                        {capture.entry.title || "Untitled capture"}
+                      </h3>
+                      <span className="rounded-md bg-emerald-100 px-2 py-1 text-xs font-medium text-emerald-800">
+                        {capture.job.type}:{capture.job.status}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">{capture.entry.content}</p>
+                    <p className="mt-3 font-mono text-xs text-slate-500">{capture.entry.id}</p>
+                  </article>
+                ))
+              )}
+            </div>
+          </section>
         </div>
       </section>
     </main>

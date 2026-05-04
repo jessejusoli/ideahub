@@ -22,6 +22,12 @@ The production-like Compose file builds the API and web images locally, runs Pos
 - Web: `http://localhost:8080`
 - API: `http://localhost:3333`
 
+The web image receives `VITE_API_BASE_URL` at build time because Vite bakes public environment variables into the static bundle. In production-like Compose this points to:
+
+```bash
+http://localhost:3333/api
+```
+
 ## Docker Images
 
 The project defines images for:
@@ -36,6 +42,15 @@ Build locally:
 make docker-build IMAGE_NAMESPACE=local IMAGE_TAG=dev
 ```
 
+To build the web image for a non-local API, pass the build argument directly:
+
+```bash
+docker build \
+  -f apps/web/Dockerfile \
+  --build-arg VITE_API_BASE_URL=https://ideahub.example.com/api \
+  -t ghcr.io/<owner>/ideahub-web:latest .
+```
+
 ## GitHub Container Registry
 
 CI publishes images to GHCR on `main` and version tags:
@@ -47,3 +62,5 @@ CI publishes images to GHCR on `main` and version tags:
 ## Kubernetes
 
 The `k8s/` directory contains production-oriented templates. They are intentionally cloud-neutral and should be adapted with real domains, managed PostgreSQL, secret management, and ingress controller annotations before production use.
+
+The Kubernetes `ConfigMap` documents both runtime service variables and the intended public web API URL. Because the current web image is static nginx output, `VITE_API_BASE_URL` must still be provided at Docker build time for deployed web images.
