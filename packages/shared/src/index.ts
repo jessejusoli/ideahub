@@ -53,6 +53,31 @@ export const createEntrySchema = z.object({
 
 export type CreateEntryInput = z.infer<typeof createEntrySchema>;
 
+export const createNoteSchema = z.object({
+  vaultId: uuidSchema,
+  projectId: uuidSchema.optional(),
+  title: z.string().trim().min(1).max(180),
+  content: z.string().min(1),
+  path: z.string().trim().min(1).max(500).optional(),
+  folder: z.string().trim().min(1).max(300).optional(),
+  aliases: z.array(z.string().trim().min(1).max(160)).default([]),
+  properties: z.record(z.string(), z.unknown()).default({})
+});
+
+export type CreateNoteInput = z.infer<typeof createNoteSchema>;
+
+export const updateNoteSchema = z.object({
+  projectId: uuidSchema.nullable().optional(),
+  title: z.string().trim().min(1).max(180).optional(),
+  content: z.string().min(1).optional(),
+  path: z.string().trim().min(1).max(500).optional(),
+  folder: z.string().trim().min(1).max(300).nullable().optional(),
+  aliases: z.array(z.string().trim().min(1).max(160)).optional(),
+  properties: z.record(z.string(), z.unknown()).optional()
+});
+
+export type UpdateNoteInput = z.infer<typeof updateNoteSchema>;
+
 export const createVaultSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(500).optional()
@@ -90,6 +115,47 @@ export const semanticSearchSchema = z.object({
 });
 
 export type SemanticSearchInput = z.infer<typeof semanticSearchSchema>;
+
+export const textSearchSchema = z.object({
+  q: z.string().trim().min(1),
+  vaultId: uuidSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20)
+});
+
+export type TextSearchInput = z.infer<typeof textSearchSchema>;
+
+export const createTemplateSchema = z.object({
+  vaultId: uuidSchema,
+  title: z.string().trim().min(1).max(180),
+  content: z.string().min(1),
+  path: z.string().trim().min(1).max(500).optional()
+});
+
+export type CreateTemplateInput = z.infer<typeof createTemplateSchema>;
+
+export const createCanvasSchema = z.object({
+  vaultId: uuidSchema,
+  title: z.string().trim().min(1).max(180),
+  path: z.string().trim().min(1).max(500).optional(),
+  canvas: z.object({
+    nodes: z.array(z.record(z.string(), z.unknown())).default([]),
+    edges: z.array(z.record(z.string(), z.unknown())).default([])
+  })
+});
+
+export type CreateCanvasInput = z.infer<typeof createCanvasSchema>;
+
+export const createWorkspaceSchema = z.object({
+  vaultId: uuidSchema,
+  name: z.string().trim().min(1).max(180),
+  layout: z.record(z.string(), z.unknown())
+});
+
+export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
+
+export const coverageStatuses = ["not_started", "planned", "implemented", "verified"] as const;
+
+export type CoverageStatus = (typeof coverageStatuses)[number];
 
 export type Vault = {
   id: string;
@@ -130,6 +196,20 @@ export type Entry = {
   updatedAt: string;
 };
 
+export type Note = Entry & {
+  path: string | null;
+  folder: string | null;
+  aliases: string[];
+  properties: Record<string, unknown>;
+  headings: Array<{
+    level: number;
+    text: string;
+    slug: string;
+  }>;
+  wordCount: number;
+  characterCount: number;
+};
+
 export type Link = {
   id: string;
   vaultId: string;
@@ -157,4 +237,21 @@ export type AnalysisSuggestion = {
       confidence: number;
     }>;
   };
+};
+
+export type CanvasDocument = {
+  id: string;
+  vaultId: string;
+  title: string;
+  canvas: {
+    nodes: Array<Record<string, unknown>>;
+    edges: Array<Record<string, unknown>>;
+  };
+};
+
+export type Workspace = {
+  id: string;
+  vaultId: string;
+  name: string;
+  layout: Record<string, unknown>;
 };

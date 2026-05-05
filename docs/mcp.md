@@ -15,6 +15,18 @@ The MCP server exists to let AI tools interact with IdeaHub through a stable pro
 | `ideahub.getEntry`       | Fetch an entry by ID.                           |
 | `ideahub.createEntry`    | Declared placeholder for future entry creation. |
 
+Upcoming MCP tools should follow the new note-first API surface:
+
+- `ideahub.listNotes`
+- `ideahub.getNote`
+- `ideahub.createNote`
+- `ideahub.updateNote`
+- `ideahub.getBacklinks`
+- `ideahub.openDailyNote`
+
+Those tools should call `/api/notes` and related public routes instead of
+importing internal API modules.
+
 ## Boundary Rules
 
 - Do not import modules from `apps/api/src`.

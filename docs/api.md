@@ -13,16 +13,23 @@ IdeaHub uses OpenAPI 3.1 as the canonical API contract. Runtime validation is ha
 
 ## Current MVP Resources
 
-| Resource | Routes                                                                                                       | Status                                        |
-| -------- | ------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
-| Health   | `GET /api/health`                                                                                            | Implemented                                   |
-| Vaults   | `GET /api/vaults`, `POST /api/vaults`                                                                        | Implemented with development user ownership   |
-| Projects | `GET /api/projects`, `POST /api/projects`                                                                    | Implemented with vault scoping                |
-| Entries  | `POST /api/entries`, `GET /api/entries/:id`, `POST /api/entries/:id/analyze`, `POST /api/entries/:id/review` | Capture, retrieval, queueing, and review flow |
-| Jobs     | `POST /api/jobs/process-next`, `POST /api/jobs/:id/process`                                                  | Deterministic local analysis processing       |
-| Audio    | `POST /api/entries/audio`                                                                                    | Contract only, returns `501`                  |
-| Search   | `GET /api/search/semantic`                                                                                   | pgvector-backed semantic search               |
-| Graph    | `GET /api/graph`                                                                                             | Contract only, returns empty graph            |
+| Resource      | Routes                                                                                                                        | Status                                          |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| Health        | `GET /api/health`                                                                                                             | Implemented                                     |
+| Vaults        | `GET /api/vaults`, `POST /api/vaults`                                                                                         | Implemented with development user ownership     |
+| Projects      | `GET /api/projects`, `POST /api/projects`                                                                                     | Implemented with vault scoping                  |
+| Entries       | `POST /api/entries`, `GET /api/entries/:id`, `POST /api/entries/:id/analyze`, `POST /api/entries/:id/review`                  | Capture, retrieval, queueing, and review flow   |
+| Notes         | `GET/POST /api/notes`, `GET/PATCH/DELETE /api/notes/:id`, `GET /api/notes/:id/backlinks`, `GET /api/notes/:id/outgoing-links` | PostgreSQL-canonical Markdown notes             |
+| Jobs          | `POST /api/jobs/process-next`, `POST /api/jobs/:id/process`                                                                   | Deterministic local analysis processing         |
+| Audio         | `POST /api/entries/audio`                                                                                                     | Contract only, returns `501`                    |
+| Search        | `GET /api/search`, `GET /api/search/semantic`                                                                                 | Text search and pgvector-backed semantic search |
+| Tags          | `GET /api/tags`                                                                                                               | Tag view with note counts                       |
+| Templates     | `GET/POST /api/templates`                                                                                                     | Markdown templates                              |
+| Daily Notes   | `POST /api/daily-notes/open`                                                                                                  | Open or create date-based notes                 |
+| Canvas        | `GET/POST /api/canvas`                                                                                                        | JSON Canvas storage                             |
+| Graph         | `GET /api/graph`                                                                                                              | Graph nodes and edges from canonical links      |
+| Workspaces    | `GET/POST /api/workspaces`                                                                                                    | Saved layout documents                          |
+| Import/Export | `POST /api/import/markdown`, `GET /api/export/markdown`                                                                       | Markdown interoperability                       |
 
 ## Capture Contract
 
@@ -51,6 +58,23 @@ The local analyzer is a scaffold for future LLM-backed RAG. It must not be treat
 ## Semantic Search
 
 `GET /api/search/semantic?q=...&vaultId=...` embeds the query with the same local deterministic embedding model and ranks matching chunks with pgvector cosine distance. This keeps the public API stable while the embedding provider is still replaceable.
+
+## Markdown Notes
+
+`entries` now also act as PostgreSQL-canonical Markdown notes through the
+`/api/notes` surface. Note metadata stores logical path, folder, aliases,
+properties, extracted headings, word count, and character count. Saving a note
+creates a new `entry_versions` snapshot for recovery.
+
+The Markdown note flow parses:
+
+- `[[wiki links]]` for outgoing links and backlinks.
+- `#tags` for canonical tag rows.
+- frontmatter-style properties for the properties view.
+- Markdown headings for outline data.
+
+This keeps Obsidian-style editing compatible with the existing RAG, semantic
+search, tags, links, and review pipeline.
 
 ## Job Runner
 

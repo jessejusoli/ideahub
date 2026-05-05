@@ -3,12 +3,15 @@ import Fastify from "fastify";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import { config } from "./config";
 import { registerOpenApi } from "./openapi";
+import { registerCoreDocumentRoutes } from "./routes/core-documents";
 import { registerEntryRoutes } from "./routes/entries";
 import { registerGraphRoutes } from "./routes/graph";
 import { registerHealthRoutes } from "./routes/health";
 import { registerJobRoutes } from "./routes/jobs";
+import { registerNoteRoutes } from "./routes/notes";
 import { registerProjectRoutes } from "./routes/projects";
 import { registerSearchRoutes } from "./routes/search";
+import { registerTagRoutes } from "./routes/tags";
 import { registerVaultRoutes } from "./routes/vaults";
 
 export function buildServer() {
@@ -30,6 +33,9 @@ export function buildServer() {
   void app.register(registerVaultRoutes, { prefix: "/api" });
   void app.register(registerProjectRoutes, { prefix: "/api" });
   void app.register(registerEntryRoutes, { prefix: "/api" });
+  void app.register(registerNoteRoutes, { prefix: "/api" });
+  void app.register(registerTagRoutes, { prefix: "/api" });
+  void app.register(registerCoreDocumentRoutes, { prefix: "/api" });
   void app.register(registerJobRoutes, { prefix: "/api" });
   void app.register(registerSearchRoutes, { prefix: "/api" });
   void app.register(registerGraphRoutes, { prefix: "/api" });

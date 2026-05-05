@@ -20,7 +20,7 @@ flowchart LR
 
 | Module            | Responsibility                                                                          |
 | ----------------- | --------------------------------------------------------------------------------------- |
-| `apps/web`        | User-facing capture workspace for vaults, projects, and text entries.                   |
+| `apps/web`        | User-facing workspace for vaults, projects, Markdown notes, links, and capture.         |
 | `apps/api`        | Public HTTP API, OpenAPI contract, validation, persistence, and orchestration.          |
 | `apps/mcp`        | Model Context Protocol server that integrates external AI tools through the public API. |
 | `packages/shared` | Shared Zod schemas, enums, and TypeScript types.                                        |
@@ -29,7 +29,7 @@ flowchart LR
 
 1. A user creates or selects a vault.
 2. A user creates or selects a project inside that vault.
-3. A user captures a text entry from the web workspace.
+3. A user captures a text entry or edits a PostgreSQL-canonical Markdown note.
 4. The API validates the request and persists the entry in PostgreSQL.
 5. The API creates `entry_versions` version `1` with the initial captured content.
 6. The API creates an `llm_jobs` analysis job in `queued` status.
@@ -37,18 +37,23 @@ flowchart LR
 8. The pipeline performs pgvector semantic retrieval inside the same vault.
 9. The pipeline creates an `analysis_suggestions` row with summary, layer, tags, and candidate links.
 10. The entry moves to `review` until a human approves or rejects the suggestion.
+11. Markdown notes parse wiki-links, tags, properties, headings, and word counts
+    into canonical metadata and relationship tables.
 
 ## Current Persistence Behavior
 
-| Action            | Current behavior                                                                                         |
-| ----------------- | -------------------------------------------------------------------------------------------------------- |
-| Create vault      | Creates a vault for the development user and inserts an owner membership.                                |
-| Create project    | Creates a project or subproject scoped to an existing vault.                                             |
-| Create entry      | Persists content, sets `pending_analysis`, creates version `1`, and queues an analysis.                  |
-| Process analysis  | Chunks content, writes pgvector embeddings, retrieves related context, and creates a pending suggestion. |
-| Review suggestion | Approves or rejects a suggestion. Approval consolidates summary, layer, tags, and candidate links.       |
-| Semantic search   | Embeds the query locally and retrieves matching chunks through PostgreSQL + pgvector.                    |
-| Get entry         | Returns the entry with versions, tags, links, and analysis suggestions.                                  |
+| Action             | Current behavior                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------------------- |
+| Create vault       | Creates a vault for the development user and inserts an owner membership.                                |
+| Create project     | Creates a project or subproject scoped to an existing vault.                                             |
+| Create entry       | Persists content, sets `pending_analysis`, creates version `1`, and queues an analysis.                  |
+| Process analysis   | Chunks content, writes pgvector embeddings, retrieves related context, and creates a pending suggestion. |
+| Review suggestion  | Approves or rejects a suggestion. Approval consolidates summary, layer, tags, and candidate links.       |
+| Semantic search    | Embeds the query locally and retrieves matching chunks through PostgreSQL + pgvector.                    |
+| Get entry          | Returns the entry with versions, tags, links, and analysis suggestions.                                  |
+| Create/update note | Persists Markdown, writes a recovery version, extracts metadata, tags, outgoing links, and backlinks.    |
+| Daily note         | Opens or creates a date-based Markdown note stored in PostgreSQL.                                        |
+| Canvas/workspace   | Stores JSON Canvas and workspace layout documents as canonical PostgreSQL records.                       |
 
 ## Analysis Pipeline
 

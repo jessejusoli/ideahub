@@ -64,6 +64,13 @@ The foundation now includes a working capture path:
 - Generate pending suggestions for summary, layer, tags, and links.
 - Approve or reject suggestions through the review API.
 - Use the web capture workspace against the Fastify API.
+- Create and edit canonical PostgreSQL Markdown notes.
+- Parse `[[wiki links]]`, `#tags`, frontmatter properties, headings, word count,
+  outgoing links, backlinks, and unlinked mentions.
+- Open daily notes and store templates, JSON Canvas documents, and workspaces.
+
+The Obsidian core-feature parity target is tracked in
+[`docs/obsidian-coverage.md`](docs/obsidian-coverage.md).
 
 ## Product Philosophy
 
@@ -141,6 +148,11 @@ replace that analyzer behind the same review-first contract.
 | 3     | Capture inbox and analysis pipeline | Accept text/audio, transcribe, embed, and analyze entries        |
 | 4     | Review workflow and semantic links  | Approve AI suggestions and build reliable knowledge connections  |
 | 5     | Graph visualization                 | Explore entries and relationships through an interactive graph   |
+
+The roadmap now tracks Obsidian core coverage explicitly. The first parity
+milestone is **Editor + Links**: Markdown editing, file explorer, wiki-links,
+backlinks, tags, properties, outline, word count, search, recovery versions, and
+daily notes.
 
 Future versions may explore multidimensional views inspired by layers, cubes,
 molecular structures, and dynamic project states. The MVP will start with the
