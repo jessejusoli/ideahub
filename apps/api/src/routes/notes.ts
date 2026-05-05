@@ -1,7 +1,10 @@
 import {
+  composeNoteSchema,
   createNoteSchema,
   moveNoteSchema,
+  randomNoteSchema,
   restoreNoteVersionSchema,
+  uniqueNoteSchema,
   updateNoteSchema,
   uuidSchema
 } from "@ideahub/shared";
@@ -126,6 +129,10 @@ const backlinksResponseSchema = z.object({
 const deleteResponseSchema = z.object({
   id: z.string().uuid(),
   deleted: z.boolean()
+});
+
+const randomNoteResponseSchema = z.object({
+  note: noteResponseSchema.nullable()
 });
 
 const errorResponseSchema = z.object({
@@ -359,6 +366,178 @@ export const registerNoteRoutes: FastifyPluginAsyncZod = async (app) => {
         id: request.params.id,
         deleted: true
       };
+    }
+  );
+
+  app.post(
+    "/notes/random",
+    {
+      schema: {
+        tags: ["Notes"],
+        summary: "Open a random note from a vault",
+        body: randomNoteSchema,
+        response: {
+          200: randomNoteResponseSchema
+        }
+      }
+    },
+    async (request) => {
+      const notes = (
+        await db.query.entries.findMany({
+          where: eq(entries.vaultId, request.body.vaultId)
+        })
+      ).filter((entry) => (coerceMetadata(entry.metadata).kind ?? "note") === "note");
+
+      if (notes.length === 0) {
+        return { note: null };
+      }
+
+      const note = notes[Math.floor(Math.random() * notes.length)];
+
+      return {
+        note: note ? serializeNote(note) : null
+      };
+    }
+  );
+
+  app.post(
+    "/notes/unique",
+    {
+      schema: {
+        tags: ["Notes"],
+        summary: "Create a unique timestamp note",
+        body: uniqueNoteSchema,
+        response: {
+          201: noteResponseSchema
+        }
+      }
+    },
+    async (request, reply) => {
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[-:]/g, "")
+        .replace(/\.\d{3}Z$/, "Z");
+      const title = `${request.body.prefix} ${timestamp}`;
+      const path = `${request.body.folder}/${title}.md`;
+      const template = request.body.templateId
+        ? await db.query.entries.findFirst({ where: eq(entries.id, request.body.templateId) })
+        : null;
+      const content = (template?.content ?? `# ${title}\n\n`).replaceAll("{{title}}", title);
+      const created = await db.transaction(async (tx) => {
+        const [entry] = await tx
+          .insert(entries)
+          .values({
+            vaultId: request.body.vaultId,
+            projectId: request.body.projectId ?? null,
+            title,
+            content,
+            source: "text",
+            status: "published",
+            metadata: buildMetadata({
+              content,
+              kind: "note",
+              path,
+              folder: request.body.folder,
+              properties: {
+                uniqueId: timestamp
+              }
+            })
+          })
+          .returning();
+
+        if (!entry) {
+          throw new Error("Failed to create unique note.");
+        }
+
+        await tx.insert(entryVersions).values({
+          entryId: entry.id,
+          version: 1,
+          title: entry.title,
+          content: entry.content,
+          changeReason: "Unique note created"
+        });
+
+        await syncMarkdownRelations(tx, entry);
+
+        return entry;
+      });
+
+      return reply.code(201).send(serializeNote(created));
+    }
+  );
+
+  app.post(
+    "/notes/compose",
+    {
+      schema: {
+        tags: ["Notes"],
+        summary: "Compose a new note from existing notes",
+        body: composeNoteSchema,
+        response: {
+          201: noteResponseSchema,
+          404: errorResponseSchema
+        }
+      }
+    },
+    async (request, reply) => {
+      const sourceNotes = (
+        await db.query.entries.findMany({
+          where: eq(entries.vaultId, request.body.vaultId)
+        })
+      ).filter((entry) => request.body.sourceNoteIds.includes(entry.id));
+
+      if (sourceNotes.length !== request.body.sourceNoteIds.length) {
+        return reply.code(404).send({
+          code: "SOURCE_NOTE_NOT_FOUND",
+          message: "One or more source notes were not found in this vault."
+        });
+      }
+
+      const content = sourceNotes
+        .map((note) => `## ${note.title ?? "Untitled"}\n\n${note.content}`)
+        .join("\n\n---\n\n");
+      const path = `Composed/${request.body.title}.md`;
+      const created = await db.transaction(async (tx) => {
+        const [entry] = await tx
+          .insert(entries)
+          .values({
+            vaultId: request.body.vaultId,
+            projectId: request.body.projectId ?? null,
+            title: request.body.title,
+            content,
+            source: "text",
+            status: "published",
+            metadata: buildMetadata({
+              content,
+              kind: "note",
+              path,
+              folder: "Composed",
+              properties: {
+                composedFrom: sourceNotes.map((note) => note.id),
+                mode: request.body.mode
+              }
+            })
+          })
+          .returning();
+
+        if (!entry) {
+          throw new Error("Failed to compose note.");
+        }
+
+        await tx.insert(entryVersions).values({
+          entryId: entry.id,
+          version: 1,
+          title: entry.title,
+          content: entry.content,
+          changeReason: "Composed from source notes"
+        });
+
+        await syncMarkdownRelations(tx, entry);
+
+        return entry;
+      });
+
+      return reply.code(201).send(serializeNote(created));
     }
   );
 

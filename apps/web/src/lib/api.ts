@@ -81,6 +81,21 @@ export type CommandDefinition = {
   enabled: boolean;
 };
 
+export type Bookmark = {
+  id: string;
+  vaultId: string;
+  label: string;
+  payload: {
+    type: "note" | "search" | "heading" | "canvas" | "graph" | "external";
+    targetId: string | null;
+    targetPath: string | null;
+    query: string | null;
+    url: string | null;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type NoteLink = {
   raw: string;
   target: string;
@@ -228,6 +243,37 @@ export async function restoreNoteVersion(noteId: string, version: number) {
   });
 }
 
+export async function openRandomNote(vaultId: string) {
+  return request<{ note: Note | null }>("/notes/random", {
+    method: "POST",
+    body: JSON.stringify({ vaultId })
+  });
+}
+
+export async function createUniqueNote(input: {
+  vaultId: string;
+  projectId?: string;
+  prefix?: string;
+  folder?: string;
+}) {
+  return request<Note>("/notes/unique", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function composeNote(input: {
+  vaultId: string;
+  projectId?: string;
+  title: string;
+  sourceNoteIds: string[];
+}) {
+  return request<Note>("/notes/compose", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
 export async function getOutgoingLinks(noteId: string) {
   return request<{ noteId: string; links: NoteLink[] }>(`/notes/${noteId}/outgoing-links`);
 }
@@ -260,4 +306,34 @@ export async function quickSwitcher(vaultId: string, q: string) {
 
 export async function listCommands() {
   return request<{ commands: CommandDefinition[] }>("/commands");
+}
+
+export async function listBookmarks(vaultId?: string) {
+  const params = new URLSearchParams();
+  if (vaultId) {
+    params.set("vaultId", vaultId);
+  }
+
+  return request<{ bookmarks: Bookmark[] }>(`/bookmarks?${params.toString()}`);
+}
+
+export async function createBookmark(input: {
+  vaultId: string;
+  label: string;
+  type: Bookmark["payload"]["type"];
+  targetId?: string;
+  targetPath?: string;
+  query?: string;
+  url?: string;
+}) {
+  return request<Bookmark>("/bookmarks", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function deleteBookmark(id: string) {
+  return request<{ id: string; deleted: boolean }>(`/bookmarks/${id}`, {
+    method: "DELETE"
+  });
 }

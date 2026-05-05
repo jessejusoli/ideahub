@@ -55,6 +55,8 @@ flowchart LR
 | Move note          | Updates logical path/folder metadata while keeping PostgreSQL canonical.                                 |
 | Restore note       | Restores from `entry_versions` and writes a new recovery snapshot.                                       |
 | Quick switcher     | Fuzzy-ranks notes by title, path, alias, tags, and content.                                              |
+| Bookmarks          | Stores shortcuts as PostgreSQL-native entries with bookmark metadata.                                    |
+| Note utilities     | Creates random, unique, and composed notes inside the canonical database model.                          |
 | Daily note         | Opens or creates a date-based Markdown note stored in PostgreSQL.                                        |
 | Canvas/workspace   | Stores JSON Canvas and workspace layout documents as canonical PostgreSQL records.                       |
 

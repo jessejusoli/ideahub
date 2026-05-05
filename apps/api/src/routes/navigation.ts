@@ -70,8 +70,10 @@ const commands = [
   { id: "graph.open", label: "Open graph", category: "Graph", enabled: true },
   { id: "canvas.create", label: "Create canvas", category: "Canvas", enabled: true },
   { id: "template.create", label: "Create template", category: "Templates", enabled: true },
-  { id: "note.random", label: "Open random note", category: "Notes", enabled: false },
-  { id: "note.unique", label: "Create unique note", category: "Notes", enabled: false }
+  { id: "bookmark.create", label: "Bookmark current note", category: "Bookmarks", enabled: true },
+  { id: "note.random", label: "Open random note", category: "Notes", enabled: true },
+  { id: "note.unique", label: "Create unique note", category: "Notes", enabled: true },
+  { id: "note.compose", label: "Compose note from sources", category: "Notes", enabled: true }
 ];
 
 export const registerNavigationRoutes: FastifyPluginAsyncZod = async (app) => {

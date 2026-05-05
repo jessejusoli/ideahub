@@ -29,7 +29,8 @@ http://localhost:3333/api
 ```
 
 The current production-like bundle includes the first Obsidian core coverage
-milestones, **Editor + Links** and **Explorer + Recovery + Quick Switcher**:
+milestones, **Editor + Links**, **Explorer + Recovery + Quick Switcher**, and
+**Command Palette + Bookmarks + Note Utilities**:
 
 - PostgreSQL-canonical Markdown notes through `/api/notes`.
 - Wiki-link, backlink, tag, property, outline, word-count, and text-search APIs.
@@ -39,6 +40,7 @@ milestones, **Editor + Links** and **Explorer + Recovery + Quick Switcher**:
   backlinks panel.
 - Logical folder/path explorer, note move/rename, recovery version restore,
   quick switcher, and command registry surfaces.
+- PostgreSQL-native bookmarks plus random, unique, and composed note commands.
 
 No additional runtime environment variable or database service is required for
 this milestone. The implementation reuses the existing API/Web images,

@@ -72,6 +72,12 @@ The foundation now includes a working capture path:
 - Move or rename notes without making files the source of truth.
 - List and restore recovery versions from `entry_versions`.
 - Fuzzy-open notes through the quick switcher API and web control.
+- Run command registry actions for note creation, daily notes, random notes,
+  unique notes, bookmarks, and note composition.
+- Store bookmarks natively in PostgreSQL for notes, searches, headings, canvas,
+  graph, and external references.
+- Create random, unique timestamp, and composed notes without relying on files as
+  the source of truth.
 
 The Obsidian core-feature parity target is tracked in
 [`docs/obsidian-coverage.md`](docs/obsidian-coverage.md).
@@ -161,6 +167,10 @@ daily notes.
 The second parity milestone adds **Explorer + Recovery + Quick Switcher**:
 logical folders/paths, note move/rename, version listing/restoration, fuzzy note
 opening, and the first command registry surface.
+
+The third parity milestone adds **Command Palette + Bookmarks + Note
+Utilities**: executable command registry actions, PostgreSQL-native bookmarks,
+random note, unique timestamp note, and note composition.
 
 Future versions may explore multidimensional views inspired by layers, cubes,
 molecular structures, and dynamic project states. The MVP will start with the

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Bookmark,
   BrainCircuit,
   ChevronRight,
   CheckCircle2,
@@ -23,18 +24,24 @@ import { layers, layerLabels } from "@ideahub/shared";
 import { Button } from "./components/ui/button";
 import {
   createEntry,
+  createBookmark,
   createNote,
   createProject,
+  createUniqueNote,
   createVault,
+  composeNote,
+  deleteBookmark,
   getExplorer,
   getBacklinks,
   getOutgoingLinks,
+  listBookmarks,
   listCommands,
   listNoteVersions,
   listNotes,
   listProjects,
   listVaults,
   moveNote,
+  openRandomNote,
   openDailyNote,
   quickSwitcher,
   restoreNoteVersion,
@@ -105,6 +112,12 @@ export function App() {
   const commandsQuery = useQuery({
     queryKey: ["commands"],
     queryFn: listCommands
+  });
+
+  const bookmarksQuery = useQuery({
+    queryKey: ["bookmarks", activeVaultId],
+    queryFn: () => listBookmarks(activeVaultId),
+    enabled: Boolean(activeVaultId)
   });
 
   const outgoingQuery = useQuery({
@@ -217,6 +230,47 @@ export function App() {
     }
   });
 
+  const randomNoteMutation = useMutation({
+    mutationFn: openRandomNote,
+    onSuccess: ({ note }) => {
+      if (note) {
+        selectNote(note);
+      }
+    }
+  });
+
+  const uniqueNoteMutation = useMutation({
+    mutationFn: createUniqueNote,
+    onSuccess: async (note) => {
+      selectNote(note);
+      await queryClient.invalidateQueries({ queryKey: ["notes", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["explorer", activeVaultId] });
+    }
+  });
+
+  const composeNoteMutation = useMutation({
+    mutationFn: composeNote,
+    onSuccess: async (note) => {
+      selectNote(note);
+      await queryClient.invalidateQueries({ queryKey: ["notes", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["explorer", activeVaultId] });
+    }
+  });
+
+  const createBookmarkMutation = useMutation({
+    mutationFn: createBookmark,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["bookmarks", activeVaultId] });
+    }
+  });
+
+  const deleteBookmarkMutation = useMutation({
+    mutationFn: deleteBookmark,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["bookmarks", activeVaultId] });
+    }
+  });
+
   const statusText = useMemo(() => {
     if (createEntryMutation.isPending) {
       return "Capturing thought and queueing analysis";
@@ -237,6 +291,67 @@ export function App() {
     setNoteTitle(note.title ?? "");
     setNotePath(note.path ?? "");
     setNoteContent(note.content);
+  }
+
+  function runCommand(commandId: string) {
+    if (commandId === "note.create") {
+      setActiveNoteId("");
+      setNoteTitle("New linked note");
+      setNotePath("");
+      setNoteContent("# New linked note\n\nWrite Markdown with [[wiki links]] and #tags.\n");
+      return;
+    }
+
+    if (commandId === "daily.open" && activeVaultId) {
+      dailyNoteMutation.mutate({
+        vaultId: activeVaultId,
+        projectId: activeProjectId || undefined
+      });
+      return;
+    }
+
+    if (commandId === "note.random" && activeVaultId) {
+      randomNoteMutation.mutate(activeVaultId);
+      return;
+    }
+
+    if (commandId === "note.unique" && activeVaultId) {
+      uniqueNoteMutation.mutate({
+        vaultId: activeVaultId,
+        projectId: activeProjectId || undefined,
+        prefix: "Idea",
+        folder: "Unique"
+      });
+      return;
+    }
+
+    if (commandId === "bookmark.create" && activeVaultId && activeNote) {
+      createBookmarkMutation.mutate({
+        vaultId: activeVaultId,
+        label: activeNote.title ?? activeNote.path ?? "Untitled note",
+        type: "note",
+        targetId: activeNote.id,
+        targetPath: activeNote.path ?? undefined
+      });
+      return;
+    }
+
+    if (commandId === "note.compose" && activeVaultId && activeNote) {
+      const sourceIds = [
+        activeNote.id,
+        ...(notesQuery.data?.notes
+          .filter((note) => note.id !== activeNote.id)
+          .slice(0, 1)
+          .map((note) => note.id) ?? [])
+      ];
+
+      composeNoteMutation.mutate({
+        vaultId: activeVaultId,
+        projectId: activeProjectId || undefined,
+        title: `Composed ${activeNote.title ?? "Note"}`,
+        sourceNoteIds: sourceIds
+      });
+    }
   }
 
   return (
@@ -679,9 +794,74 @@ export function App() {
                     <span className="text-xs text-slate-500">
                       {command.enabled ? "ready" : "planned"}
                     </span>
+                    {command.enabled ? (
+                      <Button size="sm" variant="secondary" onClick={() => runCommand(command.id)}>
+                        Run
+                      </Button>
+                    ) : null}
                   </div>
                 ))}
               </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Bookmark className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-lg font-semibold text-slate-950">Bookmarks</h2>
+            </div>
+            <div className="mb-4 flex justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => activeNote && runCommand("bookmark.create")}
+                disabled={!activeNote || createBookmarkMutation.isPending}
+              >
+                <Bookmark className="h-4 w-4" />
+                Bookmark current note
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {(bookmarksQuery.data?.bookmarks ?? []).map((bookmark) => (
+                <div
+                  key={bookmark.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                >
+                  <button
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => {
+                      const target = notesQuery.data?.notes.find(
+                        (note) => note.id === bookmark.payload.targetId
+                      );
+                      if (target) {
+                        selectNote(target);
+                      }
+                    }}
+                  >
+                    <span className="block truncate font-medium text-slate-900">
+                      {bookmark.label}
+                    </span>
+                    <span className="block truncate text-xs text-slate-500">
+                      {bookmark.payload.type} ·{" "}
+                      {bookmark.payload.targetPath ||
+                        bookmark.payload.query ||
+                        bookmark.payload.url}
+                    </span>
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => deleteBookmarkMutation.mutate(bookmark.id)}
+                    disabled={deleteBookmarkMutation.isPending}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              {bookmarksQuery.data?.bookmarks.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  Bookmark notes, searches, headings, canvas, graph, or external references.
+                </p>
+              ) : null}
             </div>
           </section>
 

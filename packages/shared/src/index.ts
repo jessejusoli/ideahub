@@ -167,6 +167,48 @@ export const createWorkspaceSchema = z.object({
 
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
 
+export const createBookmarkSchema = z.object({
+  vaultId: uuidSchema,
+  label: z.string().trim().min(1).max(180),
+  type: z.enum(["note", "search", "heading", "canvas", "graph", "external"]),
+  targetId: uuidSchema.optional(),
+  targetPath: z.string().trim().min(1).max(500).optional(),
+  query: z.string().trim().min(1).max(500).optional(),
+  url: z.string().url().optional()
+});
+
+export type CreateBookmarkInput = z.infer<typeof createBookmarkSchema>;
+
+export const updateBookmarkSchema = createBookmarkSchema.partial().omit({ vaultId: true });
+
+export type UpdateBookmarkInput = z.infer<typeof updateBookmarkSchema>;
+
+export const randomNoteSchema = z.object({
+  vaultId: uuidSchema
+});
+
+export type RandomNoteInput = z.infer<typeof randomNoteSchema>;
+
+export const uniqueNoteSchema = z.object({
+  vaultId: uuidSchema,
+  projectId: uuidSchema.optional(),
+  prefix: z.string().trim().min(1).max(80).default("Note"),
+  folder: z.string().trim().min(1).max(300).default("Unique"),
+  templateId: uuidSchema.optional()
+});
+
+export type UniqueNoteInput = z.infer<typeof uniqueNoteSchema>;
+
+export const composeNoteSchema = z.object({
+  vaultId: uuidSchema,
+  projectId: uuidSchema.optional(),
+  title: z.string().trim().min(1).max(180),
+  sourceNoteIds: z.array(uuidSchema).min(1).max(20),
+  mode: z.enum(["merge"]).default("merge")
+});
+
+export type ComposeNoteInput = z.infer<typeof composeNoteSchema>;
+
 export const coverageStatuses = ["not_started", "planned", "implemented", "verified"] as const;
 
 export type CoverageStatus = (typeof coverageStatuses)[number];

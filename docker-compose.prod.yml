@@ -23,7 +23,7 @@ services:
       DATABASE_URL: postgres://ideahub:ideahub@postgres:5432/ideahub
       WEB_ORIGIN: http://localhost:8080
       SESSION_SECRET: local-prod-compose-secret
-      IDEAHUB_FEATURE_SET: obsidian-core-explorer-recovery-switcher
+      IDEAHUB_FEATURE_SET: obsidian-core-command-bookmarks-utilities
       IDEAHUB_COVERAGE_DOC: docs/obsidian-coverage.md
     ports:
       - "3333:3333"

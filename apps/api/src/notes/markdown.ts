@@ -5,7 +5,7 @@ import type * as schema from "../db/schema";
 import { entries, entryTags, links, tags } from "../db/schema";
 
 export type EntryMetadata = {
-  kind?: "note" | "template" | "canvas" | "workspace";
+  kind?: "note" | "template" | "canvas" | "workspace" | "bookmark";
   path?: string;
   folder?: string;
   aliases?: string[];
@@ -16,6 +16,7 @@ export type EntryMetadata = {
   backlinksReady?: boolean;
   canvas?: unknown;
   workspace?: unknown;
+  bookmark?: unknown;
 };
 
 export type ParsedMarkdown = {
