@@ -68,6 +68,10 @@ The foundation now includes a working capture path:
 - Parse `[[wiki links]]`, `#tags`, frontmatter properties, headings, word count,
   outgoing links, backlinks, and unlinked mentions.
 - Open daily notes and store templates, JSON Canvas documents, and workspaces.
+- Browse the logical PostgreSQL file explorer by folder/path.
+- Move or rename notes without making files the source of truth.
+- List and restore recovery versions from `entry_versions`.
+- Fuzzy-open notes through the quick switcher API and web control.
 
 The Obsidian core-feature parity target is tracked in
 [`docs/obsidian-coverage.md`](docs/obsidian-coverage.md).
@@ -153,6 +157,10 @@ The roadmap now tracks Obsidian core coverage explicitly. The first parity
 milestone is **Editor + Links**: Markdown editing, file explorer, wiki-links,
 backlinks, tags, properties, outline, word count, search, recovery versions, and
 daily notes.
+
+The second parity milestone adds **Explorer + Recovery + Quick Switcher**:
+logical folders/paths, note move/rename, version listing/restoration, fuzzy note
+opening, and the first command registry surface.
 
 Future versions may explore multidimensional views inspired by layers, cubes,
 molecular structures, and dynamic project states. The MVP will start with the

@@ -1,4 +1,10 @@
-import { createNoteSchema, updateNoteSchema, uuidSchema } from "@ideahub/shared";
+import {
+  createNoteSchema,
+  moveNoteSchema,
+  restoreNoteVersionSchema,
+  updateNoteSchema,
+  uuidSchema
+} from "@ideahub/shared";
 import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
@@ -51,6 +57,33 @@ const noteResponseSchema = z.object({
 
 const notesListResponseSchema = z.object({
   notes: z.array(noteResponseSchema)
+});
+
+const versionResponseSchema = z.object({
+  id: z.string().uuid(),
+  version: z.number(),
+  title: z.string().nullable(),
+  content: z.string(),
+  changeReason: z.string().nullable(),
+  createdAt: z.string()
+});
+
+const versionsResponseSchema = z.object({
+  noteId: z.string().uuid(),
+  versions: z.array(versionResponseSchema)
+});
+
+const diffResponseSchema = z.object({
+  noteId: z.string().uuid(),
+  fromVersion: versionResponseSchema.nullable(),
+  current: z.object({
+    title: z.string().nullable(),
+    content: z.string(),
+    updatedAt: z.string()
+  }),
+  changed: z.boolean(),
+  titleChanged: z.boolean(),
+  contentChanged: z.boolean()
 });
 
 const linkNoteSchema = z.object({
@@ -330,6 +363,279 @@ export const registerNoteRoutes: FastifyPluginAsyncZod = async (app) => {
   );
 
   app.get(
+    "/notes/:id/versions",
+    {
+      schema: {
+        tags: ["Notes"],
+        summary: "List recovery versions for a Markdown note",
+        params: paramsSchema,
+        response: {
+          200: versionsResponseSchema,
+          404: errorResponseSchema
+        }
+      }
+    },
+    async (request, reply) => {
+      const note = await db.query.entries.findFirst({
+        where: eq(entries.id, request.params.id)
+      });
+
+      if (!note) {
+        return reply.code(404).send({
+          code: "NOTE_NOT_FOUND",
+          message: "Note not found."
+        });
+      }
+
+      const versions = await db.query.entryVersions.findMany({
+        where: eq(entryVersions.entryId, note.id),
+        orderBy: [desc(entryVersions.version)]
+      });
+
+      return {
+        noteId: note.id,
+        versions: versions.map(serializeVersion)
+      };
+    }
+  );
+
+  app.get(
+    "/notes/:id/versions/:version/diff",
+    {
+      schema: {
+        tags: ["Notes"],
+        summary: "Compare a recovery version with the current note",
+        params: z.object({
+          id: uuidSchema,
+          version: z.coerce.number().int().min(1)
+        }),
+        response: {
+          200: diffResponseSchema,
+          404: errorResponseSchema
+        }
+      }
+    },
+    async (request, reply) => {
+      const note = await db.query.entries.findFirst({
+        where: eq(entries.id, request.params.id)
+      });
+
+      if (!note) {
+        return reply.code(404).send({
+          code: "NOTE_NOT_FOUND",
+          message: "Note not found."
+        });
+      }
+
+      const version = await db.query.entryVersions.findFirst({
+        where: and(
+          eq(entryVersions.entryId, note.id),
+          eq(entryVersions.version, request.params.version)
+        )
+      });
+
+      if (!version) {
+        return reply.code(404).send({
+          code: "VERSION_NOT_FOUND",
+          message: "Recovery version not found."
+        });
+      }
+
+      return {
+        noteId: note.id,
+        fromVersion: serializeVersion(version),
+        current: {
+          title: note.title,
+          content: note.content,
+          updatedAt: note.updatedAt.toISOString()
+        },
+        changed: version.title !== note.title || version.content !== note.content,
+        titleChanged: version.title !== note.title,
+        contentChanged: version.content !== note.content
+      };
+    }
+  );
+
+  app.post(
+    "/notes/:id/restore",
+    {
+      schema: {
+        tags: ["Notes"],
+        summary: "Restore a Markdown note from a recovery version",
+        params: paramsSchema,
+        body: restoreNoteVersionSchema,
+        response: {
+          200: noteResponseSchema,
+          404: errorResponseSchema
+        }
+      }
+    },
+    async (request, reply) => {
+      const restored = await db.transaction(async (tx) => {
+        const note = await tx.query.entries.findFirst({
+          where: eq(entries.id, request.params.id)
+        });
+
+        if (!note) {
+          return null;
+        }
+
+        const version = await tx.query.entryVersions.findFirst({
+          where: and(
+            eq(entryVersions.entryId, note.id),
+            eq(entryVersions.version, request.body.version)
+          )
+        });
+
+        if (!version) {
+          return undefined;
+        }
+
+        const latestVersion = await tx.query.entryVersions.findFirst({
+          where: eq(entryVersions.entryId, note.id),
+          orderBy: [desc(entryVersions.version)]
+        });
+        const metadata = buildMetadata({
+          content: version.content,
+          kind: "note",
+          path: coerceMetadata(note.metadata).path ?? toDefaultPath(version.title ?? "Untitled"),
+          folder: coerceMetadata(note.metadata).folder ?? null,
+          aliases: coerceMetadata(note.metadata).aliases ?? [],
+          properties: coerceMetadata(note.metadata).properties ?? {},
+          current: note.metadata
+        });
+        const [entry] = await tx
+          .update(entries)
+          .set({
+            title: version.title,
+            content: version.content,
+            metadata,
+            updatedAt: new Date()
+          })
+          .where(eq(entries.id, note.id))
+          .returning();
+
+        if (!entry) {
+          throw new Error("Failed to restore note.");
+        }
+
+        await tx.insert(entryVersions).values({
+          entryId: entry.id,
+          version: (latestVersion?.version ?? 0) + 1,
+          title: entry.title,
+          content: entry.content,
+          changeReason: `Restored from version ${version.version}`
+        });
+
+        await syncMarkdownRelations(tx, entry);
+
+        return entry;
+      });
+
+      if (restored === null) {
+        return reply.code(404).send({
+          code: "NOTE_NOT_FOUND",
+          message: "Note not found."
+        });
+      }
+
+      if (restored === undefined) {
+        return reply.code(404).send({
+          code: "VERSION_NOT_FOUND",
+          message: "Recovery version not found."
+        });
+      }
+
+      return serializeNote(restored);
+    }
+  );
+
+  app.post(
+    "/notes/:id/move",
+    {
+      schema: {
+        tags: ["Notes"],
+        summary: "Rename or move a Markdown note in the logical explorer",
+        params: paramsSchema,
+        body: moveNoteSchema,
+        response: {
+          200: noteResponseSchema,
+          404: errorResponseSchema
+        }
+      }
+    },
+    async (request, reply) => {
+      const moved = await db.transaction(async (tx) => {
+        const note = await tx.query.entries.findFirst({
+          where: eq(entries.id, request.params.id)
+        });
+
+        if (!note) {
+          return null;
+        }
+
+        const title =
+          request.body.title ??
+          request.body.path.split("/").at(-1)?.replace(/\.md$/i, "") ??
+          note.title ??
+          "Untitled";
+        const folder =
+          request.body.folder ??
+          (request.body.path.includes("/")
+            ? request.body.path.split("/").slice(0, -1).join("/")
+            : null);
+        const metadata = buildMetadata({
+          content: note.content,
+          kind: "note",
+          path: request.body.path,
+          folder,
+          aliases: coerceMetadata(note.metadata).aliases ?? [],
+          properties: coerceMetadata(note.metadata).properties ?? {},
+          current: note.metadata
+        });
+        const latestVersion = await tx.query.entryVersions.findFirst({
+          where: eq(entryVersions.entryId, note.id),
+          orderBy: [desc(entryVersions.version)]
+        });
+        const [entry] = await tx
+          .update(entries)
+          .set({
+            title,
+            metadata,
+            updatedAt: new Date()
+          })
+          .where(eq(entries.id, note.id))
+          .returning();
+
+        if (!entry) {
+          throw new Error("Failed to move note.");
+        }
+
+        await tx.insert(entryVersions).values({
+          entryId: entry.id,
+          version: (latestVersion?.version ?? 0) + 1,
+          title: entry.title,
+          content: entry.content,
+          changeReason: `Moved to ${request.body.path}`
+        });
+
+        await syncMarkdownRelations(tx, entry);
+
+        return entry;
+      });
+
+      if (!moved) {
+        return reply.code(404).send({
+          code: "NOTE_NOT_FOUND",
+          message: "Note not found."
+        });
+      }
+
+      return serializeNote(moved);
+    }
+  );
+
+  app.get(
     "/notes/:id/outgoing-links",
     {
       schema: {
@@ -474,6 +780,17 @@ export function serializeNote(entry: typeof entries.$inferSelect) {
     characterCount: metadata.characterCount ?? entry.content.length,
     createdAt: entry.createdAt.toISOString(),
     updatedAt: entry.updatedAt.toISOString()
+  };
+}
+
+function serializeVersion(version: typeof entryVersions.$inferSelect) {
+  return {
+    id: version.id,
+    version: version.version,
+    title: version.title,
+    content: version.content,
+    changeReason: version.changeReason,
+    createdAt: version.createdAt.toISOString()
   };
 }
 

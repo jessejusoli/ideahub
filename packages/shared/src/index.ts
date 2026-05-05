@@ -78,6 +78,20 @@ export const updateNoteSchema = z.object({
 
 export type UpdateNoteInput = z.infer<typeof updateNoteSchema>;
 
+export const moveNoteSchema = z.object({
+  title: z.string().trim().min(1).max(180).optional(),
+  path: z.string().trim().min(1).max(500),
+  folder: z.string().trim().min(1).max(300).nullable().optional()
+});
+
+export type MoveNoteInput = z.infer<typeof moveNoteSchema>;
+
+export const restoreNoteVersionSchema = z.object({
+  version: z.coerce.number().int().min(1)
+});
+
+export type RestoreNoteVersionInput = z.infer<typeof restoreNoteVersionSchema>;
+
 export const createVaultSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(500).optional()

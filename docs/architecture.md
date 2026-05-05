@@ -52,6 +52,9 @@ flowchart LR
 | Semantic search    | Embeds the query locally and retrieves matching chunks through PostgreSQL + pgvector.                    |
 | Get entry          | Returns the entry with versions, tags, links, and analysis suggestions.                                  |
 | Create/update note | Persists Markdown, writes a recovery version, extracts metadata, tags, outgoing links, and backlinks.    |
+| Move note          | Updates logical path/folder metadata while keeping PostgreSQL canonical.                                 |
+| Restore note       | Restores from `entry_versions` and writes a new recovery snapshot.                                       |
+| Quick switcher     | Fuzzy-ranks notes by title, path, alias, tags, and content.                                              |
 | Daily note         | Opens or creates a date-based Markdown note stored in PostgreSQL.                                        |
 | Canvas/workspace   | Stores JSON Canvas and workspace layout documents as canonical PostgreSQL records.                       |
 

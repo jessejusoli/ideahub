@@ -48,6 +48,39 @@ export type Note = {
   updatedAt: string;
 };
 
+export type NoteVersion = {
+  id: string;
+  version: number;
+  title: string | null;
+  content: string;
+  changeReason: string | null;
+  createdAt: string;
+};
+
+export type ExplorerFolder = {
+  path: string;
+  depth: number;
+  noteCount: number;
+};
+
+export type ExplorerNote = Pick<Note, "id" | "title" | "path" | "folder" | "updatedAt">;
+
+export type QuickSwitcherResult = {
+  id: string;
+  title: string | null;
+  path: string | null;
+  aliases: string[];
+  tags: string[];
+  score: number;
+};
+
+export type CommandDefinition = {
+  id: string;
+  label: string;
+  category: string;
+  enabled: boolean;
+};
+
 export type NoteLink = {
   raw: string;
   target: string;
@@ -170,6 +203,31 @@ export async function updateNote(
   });
 }
 
+export async function moveNote(
+  id: string,
+  input: {
+    title?: string;
+    path: string;
+    folder?: string | null;
+  }
+) {
+  return request<Note>(`/notes/${id}/move`, {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function listNoteVersions(noteId: string) {
+  return request<{ noteId: string; versions: NoteVersion[] }>(`/notes/${noteId}/versions`);
+}
+
+export async function restoreNoteVersion(noteId: string, version: number) {
+  return request<Note>(`/notes/${noteId}/restore`, {
+    method: "POST",
+    body: JSON.stringify({ version })
+  });
+}
+
 export async function getOutgoingLinks(noteId: string) {
   return request<{ noteId: string; links: NoteLink[] }>(`/notes/${noteId}/outgoing-links`);
 }
@@ -185,4 +243,21 @@ export async function openDailyNote(input: { vaultId: string; projectId?: string
     method: "POST",
     body: JSON.stringify(input)
   });
+}
+
+export async function getExplorer(vaultId: string) {
+  return request<{ vaultId: string; folders: ExplorerFolder[]; notes: ExplorerNote[] }>(
+    `/explorer?vaultId=${vaultId}`
+  );
+}
+
+export async function quickSwitcher(vaultId: string, q: string) {
+  const params = new URLSearchParams({ vaultId, q });
+  return request<{ query: string; vaultId: string; results: QuickSwitcherResult[] }>(
+    `/quick-switcher?${params.toString()}`
+  );
+}
+
+export async function listCommands() {
+  return request<{ commands: CommandDefinition[] }>("/commands");
 }

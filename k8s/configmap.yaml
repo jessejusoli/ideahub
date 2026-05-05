@@ -11,5 +11,5 @@ data:
   VITE_API_BASE_URL: "https://ideahub.example.com/api"
   LLM_PROVIDER: "openai"
   EMBEDDING_MODEL: "text-embedding-3-small"
-  IDEAHUB_FEATURE_SET: "obsidian-core-editor-links"
+  IDEAHUB_FEATURE_SET: "obsidian-core-explorer-recovery-switcher"
   IDEAHUB_COVERAGE_DOC: "docs/obsidian-coverage.md"

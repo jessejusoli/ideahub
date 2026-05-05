@@ -29,7 +29,7 @@ http://localhost:3333/api
 ```
 
 The current production-like bundle includes the first Obsidian core coverage
-milestone, **Editor + Links**:
+milestones, **Editor + Links** and **Explorer + Recovery + Quick Switcher**:
 
 - PostgreSQL-canonical Markdown notes through `/api/notes`.
 - Wiki-link, backlink, tag, property, outline, word-count, and text-search APIs.
@@ -37,6 +37,8 @@ milestone, **Editor + Links**:
   and Markdown import/export routes.
 - The web workspace editor, note explorer, preview, outgoing-links panel, and
   backlinks panel.
+- Logical folder/path explorer, note move/rename, recovery version restore,
+  quick switcher, and command registry surfaces.
 
 No additional runtime environment variable or database service is required for
 this milestone. The implementation reuses the existing API/Web images,

@@ -23,6 +23,10 @@ Upcoming MCP tools should follow the new note-first API surface:
 - `ideahub.updateNote`
 - `ideahub.getBacklinks`
 - `ideahub.openDailyNote`
+- `ideahub.getExplorer`
+- `ideahub.quickSwitcher`
+- `ideahub.listNoteVersions`
+- `ideahub.restoreNoteVersion`
 
 Those tools should call `/api/notes` and related public routes instead of
 importing internal API modules.

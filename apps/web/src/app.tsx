@@ -2,9 +2,12 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BrainCircuit,
+  ChevronRight,
   CheckCircle2,
-  FileText,
+  Command,
   Database,
+  FileClock,
+  FileText,
   FolderTree,
   Layers3,
   Link2,
@@ -23,12 +26,18 @@ import {
   createNote,
   createProject,
   createVault,
+  getExplorer,
   getBacklinks,
   getOutgoingLinks,
+  listCommands,
+  listNoteVersions,
   listNotes,
   listProjects,
   listVaults,
+  moveNote,
   openDailyNote,
+  quickSwitcher,
+  restoreNoteVersion,
   updateNote,
   type CapturedEntry,
   type Note
@@ -43,8 +52,10 @@ export function App() {
   const [entryTitle, setEntryTitle] = useState("");
   const [entryContent, setEntryContent] = useState("");
   const [noteSearch, setNoteSearch] = useState("");
+  const [quickQuery, setQuickQuery] = useState("");
   const [activeNoteId, setActiveNoteId] = useState("");
   const [noteTitle, setNoteTitle] = useState("New linked note");
+  const [notePath, setNotePath] = useState("");
   const [noteContent, setNoteContent] = useState(
     "# New linked note\n\nWrite Markdown with [[wiki links]], #tags, and properties.\n"
   );
@@ -72,6 +83,29 @@ export function App() {
   });
 
   const activeNote = notesQuery.data?.notes.find((note) => note.id === activeNoteId);
+
+  const explorerQuery = useQuery({
+    queryKey: ["explorer", activeVaultId],
+    queryFn: () => getExplorer(activeVaultId),
+    enabled: Boolean(activeVaultId)
+  });
+
+  const quickSwitcherQuery = useQuery({
+    queryKey: ["quick-switcher", activeVaultId, quickQuery],
+    queryFn: () => quickSwitcher(activeVaultId, quickQuery),
+    enabled: Boolean(activeVaultId && quickQuery.trim().length > 0)
+  });
+
+  const versionsQuery = useQuery({
+    queryKey: ["notes", activeNoteId, "versions"],
+    queryFn: () => listNoteVersions(activeNoteId),
+    enabled: Boolean(activeNoteId)
+  });
+
+  const commandsQuery = useQuery({
+    queryKey: ["commands"],
+    queryFn: listCommands
+  });
 
   const outgoingQuery = useQuery({
     queryKey: ["notes", activeNoteId, "outgoing"],
@@ -115,8 +149,10 @@ export function App() {
     onSuccess: async (note) => {
       setActiveNoteId(note.id);
       setNoteTitle(note.title ?? "");
+      setNotePath(note.path ?? "");
       setNoteContent(note.content);
       await queryClient.invalidateQueries({ queryKey: ["notes", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["explorer", activeVaultId] });
     }
   });
 
@@ -124,11 +160,46 @@ export function App() {
     mutationFn: (note: Note) =>
       updateNote(note.id, {
         title: noteTitle,
-        content: noteContent
+        content: noteContent,
+        path: notePath || undefined
       }),
     onSuccess: async (note) => {
       setActiveNoteId(note.id);
+      setNotePath(note.path ?? "");
       await queryClient.invalidateQueries({ queryKey: ["notes", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["explorer", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "outgoing"] });
+      await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "backlinks"] });
+      await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "versions"] });
+    }
+  });
+
+  const moveNoteMutation = useMutation({
+    mutationFn: (note: Note) =>
+      moveNote(note.id, {
+        title: noteTitle,
+        path: notePath
+      }),
+    onSuccess: async (note) => {
+      setActiveNoteId(note.id);
+      setNoteTitle(note.title ?? "");
+      setNotePath(note.path ?? "");
+      await queryClient.invalidateQueries({ queryKey: ["notes", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["explorer", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "versions"] });
+    }
+  });
+
+  const restoreVersionMutation = useMutation({
+    mutationFn: (version: number) => restoreNoteVersion(activeNoteId, version),
+    onSuccess: async (note) => {
+      setActiveNoteId(note.id);
+      setNoteTitle(note.title ?? "");
+      setNotePath(note.path ?? "");
+      setNoteContent(note.content);
+      await queryClient.invalidateQueries({ queryKey: ["notes", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["explorer", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "versions"] });
       await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "outgoing"] });
       await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "backlinks"] });
     }
@@ -139,8 +210,10 @@ export function App() {
     onSuccess: async ({ note }) => {
       setActiveNoteId(note.id);
       setNoteTitle(note.title ?? "");
+      setNotePath(note.path ?? "");
       setNoteContent(note.content);
       await queryClient.invalidateQueries({ queryKey: ["notes", activeVaultId] });
+      await queryClient.invalidateQueries({ queryKey: ["explorer", activeVaultId] });
     }
   });
 
@@ -162,6 +235,7 @@ export function App() {
   function selectNote(note: Note) {
     setActiveNoteId(note.id);
     setNoteTitle(note.title ?? "");
+    setNotePath(note.path ?? "");
     setNoteContent(note.content);
   }
 
@@ -182,6 +256,43 @@ export function App() {
                 Capture a thought, place it in a vault/project, and queue the first analysis job
                 against PostgreSQL.
               </p>
+              <div className="mt-4 max-w-xl rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <Command className="h-4 w-4 text-emerald-700" />
+                  Quick switcher
+                </div>
+                <input
+                  className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                  value={quickQuery}
+                  onChange={(event) => setQuickQuery(event.target.value)}
+                  placeholder="Open by title, path, alias, tag, or content"
+                />
+                {quickSwitcherQuery.data?.results.length ? (
+                  <div className="mt-2 max-h-44 overflow-auto rounded-md border border-slate-200 bg-white">
+                    {quickSwitcherQuery.data.results.map((result) => (
+                      <button
+                        key={result.id}
+                        className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-emerald-50"
+                        onClick={() => {
+                          const note = notesQuery.data?.notes.find((item) => item.id === result.id);
+                          if (note) {
+                            selectNote(note);
+                            setQuickQuery("");
+                          }
+                        }}
+                      >
+                        <span>
+                          <span className="block font-medium text-slate-900">
+                            {result.title || result.path || "Untitled"}
+                          </span>
+                          <span className="block text-xs text-slate-500">{result.path}</span>
+                        </span>
+                        <span className="text-xs text-slate-400">{result.score.toFixed(2)}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
             <div className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:min-w-72">
               <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -295,6 +406,31 @@ export function App() {
           <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center gap-2">
               <FolderTree className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-lg font-semibold text-slate-950">Explorer</h2>
+            </div>
+            <div className="space-y-2">
+              {(explorerQuery.data?.folders ?? []).map((folder) => (
+                <div
+                  key={folder.path}
+                  className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                  style={{ paddingLeft: `${12 + (folder.depth - 1) * 14}px` }}
+                >
+                  <span className="flex items-center gap-2 font-medium text-slate-800">
+                    <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                    {folder.path.split("/").at(-1)}
+                  </span>
+                  <span className="text-xs text-slate-500">{folder.noteCount}</span>
+                </div>
+              ))}
+              {explorerQuery.data?.folders.length === 0 ? (
+                <p className="text-sm text-slate-500">Folders appear after notes get paths.</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <FolderTree className="h-5 w-5 text-emerald-700" />
               <h2 className="text-lg font-semibold text-slate-950">Project</h2>
             </div>
             <label className="text-sm font-medium text-slate-700" htmlFor="project-select">
@@ -372,6 +508,22 @@ export function App() {
               onChange={(event) => setNoteTitle(event.target.value)}
               placeholder="Note title"
             />
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+              <input
+                className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 px-3 text-sm"
+                value={notePath}
+                onChange={(event) => setNotePath(event.target.value)}
+                placeholder="Logical path, for example Projects/IdeaHub.md"
+              />
+              <Button
+                variant="secondary"
+                onClick={() => activeNote && moveNoteMutation.mutate(activeNote)}
+                disabled={!activeNote || !notePath.trim() || moveNoteMutation.isPending}
+              >
+                <FolderTree className="h-4 w-4" />
+                Move
+              </Button>
+            </div>
             <div className="grid gap-4 xl:grid-cols-2">
               <textarea
                 className="min-h-80 w-full resize-y rounded-md border border-slate-300 p-3 font-mono text-sm leading-6"
@@ -394,6 +546,7 @@ export function App() {
                   onClick={() => {
                     setActiveNoteId("");
                     setNoteTitle("New linked note");
+                    setNotePath("");
                     setNoteContent(
                       "# New linked note\n\nWrite Markdown with [[wiki links]] and #tags.\n"
                     );
@@ -410,7 +563,8 @@ export function App() {
                           vaultId: activeVaultId,
                           projectId: activeProjectId || undefined,
                           title: noteTitle,
-                          content: noteContent
+                          content: noteContent,
+                          path: notePath || undefined
                         })
                   }
                   disabled={
@@ -467,6 +621,66 @@ export function App() {
                 {activeNoteId && backlinksQuery.data?.backlinks.length === 0 ? (
                   <p className="text-sm text-slate-500">No backlinks to this note yet.</p>
                 ) : null}
+              </div>
+            </div>
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <FileClock className="h-5 w-5 text-emerald-700" />
+                <h2 className="text-lg font-semibold text-slate-950">Recovery versions</h2>
+              </div>
+              <div className="space-y-2">
+                {(versionsQuery.data?.versions ?? []).map((version) => (
+                  <div
+                    key={version.id}
+                    className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                  >
+                    <span>
+                      <span className="block font-medium text-slate-900">
+                        Version {version.version}
+                      </span>
+                      <span className="block text-xs text-slate-500">
+                        {version.changeReason || "Snapshot"} ·{" "}
+                        {new Date(version.createdAt).toLocaleString()}
+                      </span>
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => restoreVersionMutation.mutate(version.version)}
+                      disabled={!activeNoteId || restoreVersionMutation.isPending}
+                    >
+                      Restore
+                    </Button>
+                  </div>
+                ))}
+                {activeNoteId && versionsQuery.data?.versions.length === 0 ? (
+                  <p className="text-sm text-slate-500">No recovery snapshots yet.</p>
+                ) : null}
+              </div>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-2">
+                <Command className="h-5 w-5 text-emerald-700" />
+                <h2 className="text-lg font-semibold text-slate-950">Command registry</h2>
+              </div>
+              <div className="space-y-2">
+                {(commandsQuery.data?.commands ?? []).map((command) => (
+                  <div
+                    key={command.id}
+                    className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                  >
+                    <span>
+                      <span className="block font-medium text-slate-900">{command.label}</span>
+                      <span className="block text-xs text-slate-500">{command.category}</span>
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      {command.enabled ? "ready" : "planned"}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </section>

@@ -13,23 +13,24 @@ IdeaHub uses OpenAPI 3.1 as the canonical API contract. Runtime validation is ha
 
 ## Current MVP Resources
 
-| Resource      | Routes                                                                                                                        | Status                                          |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Health        | `GET /api/health`                                                                                                             | Implemented                                     |
-| Vaults        | `GET /api/vaults`, `POST /api/vaults`                                                                                         | Implemented with development user ownership     |
-| Projects      | `GET /api/projects`, `POST /api/projects`                                                                                     | Implemented with vault scoping                  |
-| Entries       | `POST /api/entries`, `GET /api/entries/:id`, `POST /api/entries/:id/analyze`, `POST /api/entries/:id/review`                  | Capture, retrieval, queueing, and review flow   |
-| Notes         | `GET/POST /api/notes`, `GET/PATCH/DELETE /api/notes/:id`, `GET /api/notes/:id/backlinks`, `GET /api/notes/:id/outgoing-links` | PostgreSQL-canonical Markdown notes             |
-| Jobs          | `POST /api/jobs/process-next`, `POST /api/jobs/:id/process`                                                                   | Deterministic local analysis processing         |
-| Audio         | `POST /api/entries/audio`                                                                                                     | Contract only, returns `501`                    |
-| Search        | `GET /api/search`, `GET /api/search/semantic`                                                                                 | Text search and pgvector-backed semantic search |
-| Tags          | `GET /api/tags`                                                                                                               | Tag view with note counts                       |
-| Templates     | `GET/POST /api/templates`                                                                                                     | Markdown templates                              |
-| Daily Notes   | `POST /api/daily-notes/open`                                                                                                  | Open or create date-based notes                 |
-| Canvas        | `GET/POST /api/canvas`                                                                                                        | JSON Canvas storage                             |
-| Graph         | `GET /api/graph`                                                                                                              | Graph nodes and edges from canonical links      |
-| Workspaces    | `GET/POST /api/workspaces`                                                                                                    | Saved layout documents                          |
-| Import/Export | `POST /api/import/markdown`, `GET /api/export/markdown`                                                                       | Markdown interoperability                       |
+| Resource      | Routes                                                                                                                                                                                                                  | Status                                                              |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Health        | `GET /api/health`                                                                                                                                                                                                       | Implemented                                                         |
+| Vaults        | `GET /api/vaults`, `POST /api/vaults`                                                                                                                                                                                   | Implemented with development user ownership                         |
+| Projects      | `GET /api/projects`, `POST /api/projects`                                                                                                                                                                               | Implemented with vault scoping                                      |
+| Entries       | `POST /api/entries`, `GET /api/entries/:id`, `POST /api/entries/:id/analyze`, `POST /api/entries/:id/review`                                                                                                            | Capture, retrieval, queueing, and review flow                       |
+| Notes         | `GET/POST /api/notes`, `GET/PATCH/DELETE /api/notes/:id`, `GET /api/notes/:id/backlinks`, `GET /api/notes/:id/outgoing-links`, `GET /api/notes/:id/versions`, `POST /api/notes/:id/restore`, `POST /api/notes/:id/move` | PostgreSQL-canonical Markdown notes, recovery, and logical movement |
+| Navigation    | `GET /api/explorer`, `GET /api/quick-switcher`, `GET /api/commands`                                                                                                                                                     | Logical explorer, fuzzy note opening, and command registry          |
+| Jobs          | `POST /api/jobs/process-next`, `POST /api/jobs/:id/process`                                                                                                                                                             | Deterministic local analysis processing                             |
+| Audio         | `POST /api/entries/audio`                                                                                                                                                                                               | Contract only, returns `501`                                        |
+| Search        | `GET /api/search`, `GET /api/search/semantic`                                                                                                                                                                           | Text search and pgvector-backed semantic search                     |
+| Tags          | `GET /api/tags`                                                                                                                                                                                                         | Tag view with note counts                                           |
+| Templates     | `GET/POST /api/templates`                                                                                                                                                                                               | Markdown templates                                                  |
+| Daily Notes   | `POST /api/daily-notes/open`                                                                                                                                                                                            | Open or create date-based notes                                     |
+| Canvas        | `GET/POST /api/canvas`                                                                                                                                                                                                  | JSON Canvas storage                                                 |
+| Graph         | `GET /api/graph`                                                                                                                                                                                                        | Graph nodes and edges from canonical links                          |
+| Workspaces    | `GET/POST /api/workspaces`                                                                                                                                                                                              | Saved layout documents                                              |
+| Import/Export | `POST /api/import/markdown`, `GET /api/export/markdown`                                                                                                                                                                 | Markdown interoperability                                           |
 
 ## Capture Contract
 
@@ -75,6 +76,22 @@ The Markdown note flow parses:
 
 This keeps Obsidian-style editing compatible with the existing RAG, semantic
 search, tags, links, and review pipeline.
+
+## Explorer, Recovery, and Quick Switcher
+
+The file explorer is logical and PostgreSQL-backed. Note paths/folders are stored
+in metadata and can be moved with `POST /api/notes/:id/move`; files are not the
+source of truth.
+
+Recovery uses `entry_versions`:
+
+1. `GET /api/notes/:id/versions` lists snapshots.
+2. `GET /api/notes/:id/versions/:version/diff` compares a snapshot with current content.
+3. `POST /api/notes/:id/restore` restores content and creates a new recovery snapshot.
+
+`GET /api/quick-switcher` ranks notes by title, path, alias, tags, and content.
+`GET /api/commands` exposes the initial command registry used by the future
+command palette.
 
 ## Job Runner
 

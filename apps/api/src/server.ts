@@ -8,6 +8,7 @@ import { registerEntryRoutes } from "./routes/entries";
 import { registerGraphRoutes } from "./routes/graph";
 import { registerHealthRoutes } from "./routes/health";
 import { registerJobRoutes } from "./routes/jobs";
+import { registerNavigationRoutes } from "./routes/navigation";
 import { registerNoteRoutes } from "./routes/notes";
 import { registerProjectRoutes } from "./routes/projects";
 import { registerSearchRoutes } from "./routes/search";
@@ -34,6 +35,7 @@ export function buildServer() {
   void app.register(registerProjectRoutes, { prefix: "/api" });
   void app.register(registerEntryRoutes, { prefix: "/api" });
   void app.register(registerNoteRoutes, { prefix: "/api" });
+  void app.register(registerNavigationRoutes, { prefix: "/api" });
   void app.register(registerTagRoutes, { prefix: "/api" });
   void app.register(registerCoreDocumentRoutes, { prefix: "/api" });
   void app.register(registerJobRoutes, { prefix: "/api" });
