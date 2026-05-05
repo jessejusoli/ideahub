@@ -28,6 +28,21 @@ The web image receives `VITE_API_BASE_URL` at build time because Vite bakes publ
 http://localhost:3333/api
 ```
 
+The current production-like bundle includes the first Obsidian core coverage
+milestone, **Editor + Links**:
+
+- PostgreSQL-canonical Markdown notes through `/api/notes`.
+- Wiki-link, backlink, tag, property, outline, word-count, and text-search APIs.
+- Daily notes, templates, JSON Canvas storage, graph data, workspace storage,
+  and Markdown import/export routes.
+- The web workspace editor, note explorer, preview, outgoing-links panel, and
+  backlinks panel.
+
+No additional runtime environment variable or database service is required for
+this milestone. The implementation reuses the existing API/Web images,
+PostgreSQL, pgvector, and the `entries.metadata` JSONB column. Deployments only
+need freshly built images plus the normal database migration step.
+
 ## Docker Images
 
 The project defines images for:
@@ -71,8 +86,16 @@ The CI quality job also validates formatting, linting, typechecking, tests,
 builds, OpenAPI generation, TypeDoc reference generation, Compose syntax, and
 Kubernetes manifests before the image publishing job runs.
 
+When the Obsidian coverage matrix changes, image publication still follows the
+same path: push to `main`, let CI validate docs/API/Compose/Kubernetes, and then
+publish updated API, Web, and MCP images to GHCR.
+
 ## Kubernetes
 
 The `k8s/` directory contains production-oriented templates. They are intentionally cloud-neutral and should be adapted with real domains, managed PostgreSQL, secret management, and ingress controller annotations before production use.
 
 The Kubernetes `ConfigMap` documents both runtime service variables and the intended public web API URL. Because the current web image is static nginx output, `VITE_API_BASE_URL` must still be provided at Docker build time for deployed web images.
+
+The Kubernetes templates also record the active product milestone through
+`IDEAHUB_FEATURE_SET` and `IDEAHUB_COVERAGE_DOC`. These are informational
+deployment markers for operators and do not change runtime behavior yet.
