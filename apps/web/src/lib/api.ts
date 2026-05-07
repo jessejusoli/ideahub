@@ -43,9 +43,16 @@ export type Note = {
   aliases: string[];
   properties: Record<string, unknown>;
   headings: Array<{ level: number; text: string; slug: string }>;
+  footnotes: Footnote[];
   wordCount: number;
   characterCount: number;
   updatedAt: string;
+};
+
+export type Footnote = {
+  id: string;
+  definition: string | null;
+  referenceCount: number;
 };
 
 export type NoteVersion = {
@@ -119,6 +126,55 @@ export type Backlink = {
   context: string | null;
 };
 
+export type BaseRow = {
+  id: string;
+  title: string | null;
+  path: string | null;
+  folder: string | null;
+  tags: string[];
+  properties: Record<string, unknown>;
+  wordCount: number;
+  updatedAt: string;
+};
+
+export type SlashCommand = {
+  id: string;
+  label: string;
+  insertion: string;
+  description: string;
+};
+
+export type Slide = {
+  index: number;
+  title: string;
+  markdown: string;
+};
+
+export type PublishState = {
+  config: unknown | null;
+  publicNotes: Note[];
+  graph: {
+    nodes: unknown[];
+    edges: unknown[];
+  };
+};
+
+export type SyncState = {
+  vaultId: string;
+  serverVersion: string;
+  notes: Note[];
+  acceptedChanges?: number;
+};
+
+export type WebViewerDocument = {
+  id: string;
+  vaultId: string;
+  title: string | null;
+  url: string;
+  embedAllowed: boolean;
+  message: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -174,6 +230,21 @@ export async function createEntry(input: {
       ...input,
       source: "text"
     })
+  });
+}
+
+export async function createAudioEntry(input: {
+  vaultId: string;
+  projectId?: string;
+  title?: string;
+  transcript?: string;
+  audioData?: string;
+  mimeType?: string;
+  durationSeconds?: number;
+}) {
+  return request<CapturedEntry>("/entries/audio", {
+    method: "POST",
+    body: JSON.stringify(input)
   });
 }
 
@@ -282,6 +353,106 @@ export async function getBacklinks(noteId: string) {
   return request<{ noteId: string; backlinks: Backlink[]; unlinkedMentions: Backlink[] }>(
     `/notes/${noteId}/backlinks`
   );
+}
+
+export async function getFootnotes(noteId: string) {
+  return request<{ noteId: string; footnotes: Footnote[] }>(`/notes/${noteId}/footnotes`);
+}
+
+export async function getBases(vaultId: string) {
+  return request<{ vaultId: string; columns: string[]; rows: BaseRow[] }>(
+    `/bases?vaultId=${vaultId}`
+  );
+}
+
+export async function convertMarkdown(content: string, sourceFormat = "generic") {
+  return request<{ sourceFormat: string; convertedContent: string; changes: string[] }>(
+    "/format-converter",
+    {
+      method: "POST",
+      body: JSON.stringify({ content, sourceFormat })
+    }
+  );
+}
+
+export async function getPagePreview(input: { vaultId: string; noteId?: string; target?: string }) {
+  const params = new URLSearchParams({ vaultId: input.vaultId });
+  if (input.noteId) {
+    params.set("noteId", input.noteId);
+  }
+  if (input.target) {
+    params.set("target", input.target);
+  }
+
+  return request<{
+    note:
+      | (Pick<Note, "id" | "title" | "path" | "headings" | "properties" | "wordCount"> & {
+          excerpt: string;
+        })
+      | null;
+  }>(`/page-preview?${params.toString()}`);
+}
+
+export async function listSlashCommands() {
+  return request<{ commands: SlashCommand[] }>("/slash-commands");
+}
+
+export async function executeSlashCommand(input: {
+  vaultId?: string;
+  noteId?: string;
+  commandId: string;
+  query?: string;
+}) {
+  return request<{ commandId: string; insertion: string; description: string }>(
+    "/slash-commands/execute",
+    {
+      method: "POST",
+      body: JSON.stringify(input)
+    }
+  );
+}
+
+export async function getSlides(noteId: string) {
+  return request<{ noteId: string; title: string | null; slides: Slide[] }>(`/slides/${noteId}`);
+}
+
+export async function publishVault(input: {
+  vaultId: string;
+  siteName: string;
+  slug: string;
+  noteIds: string[];
+}) {
+  return request<PublishState>("/publish", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function getSyncState(vaultId: string) {
+  return request<SyncState>(`/sync?vaultId=${vaultId}`);
+}
+
+export async function pushSyncCheckpoint(input: {
+  vaultId: string;
+  clientId: string;
+  changes?: Array<{
+    entity: "note" | "workspace" | "canvas" | "bookmark";
+    operation: "upsert" | "delete";
+    id?: string;
+    payload?: Record<string, unknown>;
+  }>;
+}) {
+  return request<SyncState>("/sync", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
+export async function openWebViewer(input: { vaultId: string; url: string; title?: string }) {
+  return request<WebViewerDocument>("/web-viewer/open", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
 }
 
 export async function openDailyNote(input: { vaultId: string; projectId?: string }) {

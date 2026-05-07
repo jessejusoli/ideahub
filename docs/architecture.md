@@ -37,28 +37,43 @@ flowchart LR
 8. The pipeline performs pgvector semantic retrieval inside the same vault.
 9. The pipeline creates an `analysis_suggestions` row with summary, layer, tags, and candidate links.
 10. The entry moves to `review` until a human approves or rejects the suggestion.
-11. Markdown notes parse wiki-links, tags, properties, headings, and word counts
-    into canonical metadata and relationship tables.
+11. Markdown notes parse wiki-links, footnotes, tags, properties, headings, and
+    word counts into canonical metadata and relationship tables.
 
 ## Current Persistence Behavior
 
-| Action             | Current behavior                                                                                         |
-| ------------------ | -------------------------------------------------------------------------------------------------------- |
-| Create vault       | Creates a vault for the development user and inserts an owner membership.                                |
-| Create project     | Creates a project or subproject scoped to an existing vault.                                             |
-| Create entry       | Persists content, sets `pending_analysis`, creates version `1`, and queues an analysis.                  |
-| Process analysis   | Chunks content, writes pgvector embeddings, retrieves related context, and creates a pending suggestion. |
-| Review suggestion  | Approves or rejects a suggestion. Approval consolidates summary, layer, tags, and candidate links.       |
-| Semantic search    | Embeds the query locally and retrieves matching chunks through PostgreSQL + pgvector.                    |
-| Get entry          | Returns the entry with versions, tags, links, and analysis suggestions.                                  |
-| Create/update note | Persists Markdown, writes a recovery version, extracts metadata, tags, outgoing links, and backlinks.    |
-| Move note          | Updates logical path/folder metadata while keeping PostgreSQL canonical.                                 |
-| Restore note       | Restores from `entry_versions` and writes a new recovery snapshot.                                       |
-| Quick switcher     | Fuzzy-ranks notes by title, path, alias, tags, and content.                                              |
-| Bookmarks          | Stores shortcuts as PostgreSQL-native entries with bookmark metadata.                                    |
-| Note utilities     | Creates random, unique, and composed notes inside the canonical database model.                          |
-| Daily note         | Opens or creates a date-based Markdown note stored in PostgreSQL.                                        |
-| Canvas/workspace   | Stores JSON Canvas and workspace layout documents as canonical PostgreSQL records.                       |
+| Action             | Current behavior                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Create vault       | Creates a vault for the development user and inserts an owner membership.                                        |
+| Create project     | Creates a project or subproject scoped to an existing vault.                                                     |
+| Create entry       | Persists content, sets `pending_analysis`, creates version `1`, and queues an analysis.                          |
+| Process analysis   | Chunks content, writes pgvector embeddings, retrieves related context, and creates a pending suggestion.         |
+| Review suggestion  | Approves or rejects a suggestion. Approval consolidates summary, layer, tags, and candidate links.               |
+| Semantic search    | Embeds the query locally and retrieves matching chunks through PostgreSQL + pgvector.                            |
+| Get entry          | Returns the entry with versions, tags, links, and analysis suggestions.                                          |
+| Create/update note | Persists Markdown, writes a recovery version, extracts metadata, footnotes, tags, outgoing links, and backlinks. |
+| Move note          | Updates logical path/folder metadata while keeping PostgreSQL canonical.                                         |
+| Restore note       | Restores from `entry_versions` and writes a new recovery snapshot.                                               |
+| Quick switcher     | Fuzzy-ranks notes by title, path, alias, tags, and content.                                                      |
+| Bookmarks          | Stores shortcuts as PostgreSQL-native entries with bookmark metadata.                                            |
+| Note utilities     | Creates random, unique, and composed notes inside the canonical database model.                                  |
+| Daily note         | Opens or creates a date-based Markdown note stored in PostgreSQL.                                                |
+| Canvas/workspace   | Stores JSON Canvas and workspace layout documents as canonical PostgreSQL records.                               |
+| Core plugin views  | Computes Bases, previews, slides, publish state, sync state, and web-viewer references from PostgreSQL.          |
+
+## Core Obsidian Completion
+
+The remaining core plugin coverage is implemented as PostgreSQL-first MVP
+surfaces:
+
+- Audio recordings become `voice` entries with transcript text, audio metadata,
+  and queued transcription or analysis jobs.
+- Bases, page previews, slides, and format conversion are computed views over
+  canonical notes and Markdown metadata.
+- Publish, Sync, and Web Viewer store their state as PostgreSQL entries with
+  typed metadata instead of using local files as truth.
+- Slash commands resolve to Markdown insertions that the web editor can apply
+  without bypassing note versioning.
 
 ## Analysis Pipeline
 

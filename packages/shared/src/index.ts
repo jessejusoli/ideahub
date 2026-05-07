@@ -209,6 +209,94 @@ export const composeNoteSchema = z.object({
 
 export type ComposeNoteInput = z.infer<typeof composeNoteSchema>;
 
+export const createAudioEntrySchema = z.object({
+  vaultId: uuidSchema,
+  projectId: uuidSchema.optional(),
+  title: z.string().trim().min(1).max(180).optional(),
+  transcript: z.string().trim().min(1).optional(),
+  audioData: z.string().trim().min(1).optional(),
+  mimeType: z.string().trim().min(1).max(120).default("audio/webm"),
+  durationSeconds: z.number().min(0).max(86_400).optional()
+});
+
+export type CreateAudioEntryInput = z.infer<typeof createAudioEntrySchema>;
+
+export const formatConverterSchema = z.object({
+  content: z.string().min(1),
+  sourceFormat: z.enum(["generic", "notion", "roam", "google_docs"]).default("generic")
+});
+
+export type FormatConverterInput = z.infer<typeof formatConverterSchema>;
+
+export const baseQuerySchema = z.object({
+  vaultId: uuidSchema,
+  tag: z.string().trim().min(1).max(80).optional(),
+  folder: z.string().trim().min(1).max(300).optional(),
+  propertyKey: z.string().trim().min(1).max(120).optional(),
+  propertyValue: z.string().trim().min(1).max(300).optional(),
+  sortBy: z.enum(["title", "path", "updatedAt", "wordCount"]).default("updatedAt"),
+  sortDirection: z.enum(["asc", "desc"]).default("desc")
+});
+
+export type BaseQueryInput = z.infer<typeof baseQuerySchema>;
+
+export const pagePreviewQuerySchema = z.object({
+  vaultId: uuidSchema,
+  noteId: uuidSchema.optional(),
+  target: z.string().trim().min(1).max(500).optional()
+});
+
+export type PagePreviewQueryInput = z.infer<typeof pagePreviewQuerySchema>;
+
+export const slashCommandSchema = z.object({
+  vaultId: uuidSchema.optional(),
+  noteId: uuidSchema.optional(),
+  commandId: z.string().trim().min(1).max(120),
+  query: z.string().trim().max(300).optional()
+});
+
+export type SlashCommandInput = z.infer<typeof slashCommandSchema>;
+
+export const publishSchema = z.object({
+  vaultId: uuidSchema,
+  siteName: z.string().trim().min(1).max(180),
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[a-z0-9-]+$/),
+  noteIds: z.array(uuidSchema).default([])
+});
+
+export type PublishInput = z.infer<typeof publishSchema>;
+
+export const syncPushSchema = z.object({
+  vaultId: uuidSchema,
+  clientId: z.string().trim().min(1).max(160),
+  lastSeenVersion: z.string().trim().max(80).optional(),
+  changes: z
+    .array(
+      z.object({
+        entity: z.enum(["note", "workspace", "canvas", "bookmark"]),
+        operation: z.enum(["upsert", "delete"]),
+        id: uuidSchema.optional(),
+        payload: z.record(z.string(), z.unknown()).default({})
+      })
+    )
+    .default([])
+});
+
+export type SyncPushInput = z.infer<typeof syncPushSchema>;
+
+export const webViewerSchema = z.object({
+  vaultId: uuidSchema,
+  url: z.string().url(),
+  title: z.string().trim().min(1).max(180).optional()
+});
+
+export type WebViewerInput = z.infer<typeof webViewerSchema>;
+
 export const coverageStatuses = ["not_started", "planned", "implemented", "verified"] as const;
 
 export type CoverageStatus = (typeof coverageStatuses)[number];
@@ -262,8 +350,15 @@ export type Note = Entry & {
     text: string;
     slug: string;
   }>;
+  footnotes: Footnote[];
   wordCount: number;
   characterCount: number;
+};
+
+export type Footnote = {
+  id: string;
+  definition: string | null;
+  referenceCount: number;
 };
 
 export type Link = {

@@ -52,6 +52,13 @@ const noteResponseSchema = z.object({
       slug: z.string()
     })
   ),
+  footnotes: z.array(
+    z.object({
+      id: z.string(),
+      definition: z.string().nullable(),
+      referenceCount: z.number()
+    })
+  ),
   wordCount: z.number(),
   characterCount: z.number(),
   createdAt: z.string(),
@@ -104,6 +111,17 @@ const outgoingLinksResponseSchema = z.object({
       alias: z.string().nullable(),
       resolved: z.boolean(),
       note: linkNoteSchema.nullable()
+    })
+  )
+});
+
+const footnotesResponseSchema = z.object({
+  noteId: z.string().uuid(),
+  footnotes: z.array(
+    z.object({
+      id: z.string(),
+      definition: z.string().nullable(),
+      referenceCount: z.number()
     })
   )
 });
@@ -935,6 +953,38 @@ export const registerNoteRoutes: FastifyPluginAsyncZod = async (app) => {
       };
     }
   );
+
+  app.get(
+    "/notes/:id/footnotes",
+    {
+      schema: {
+        tags: ["Notes"],
+        summary: "Get footnotes from a Markdown note",
+        params: paramsSchema,
+        response: {
+          200: footnotesResponseSchema,
+          404: errorResponseSchema
+        }
+      }
+    },
+    async (request, reply) => {
+      const note = await db.query.entries.findFirst({
+        where: eq(entries.id, request.params.id)
+      });
+
+      if (!note) {
+        return reply.code(404).send({
+          code: "NOTE_NOT_FOUND",
+          message: "Note not found."
+        });
+      }
+
+      return {
+        noteId: note.id,
+        footnotes: parseMarkdown(note.content).footnotes
+      };
+    }
+  );
 };
 
 export function serializeNote(entry: typeof entries.$inferSelect) {
@@ -955,6 +1005,7 @@ export function serializeNote(entry: typeof entries.$inferSelect) {
     aliases: metadata.aliases ?? [],
     properties: metadata.properties ?? {},
     headings: metadata.headings ?? [],
+    footnotes: metadata.footnotes ?? parseMarkdown(entry.content).footnotes,
     wordCount: metadata.wordCount ?? parseMarkdown(entry.content).wordCount,
     characterCount: metadata.characterCount ?? entry.content.length,
     createdAt: entry.createdAt.toISOString(),

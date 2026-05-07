@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run src --exclude \"dist/**\" --passWithNoTests",
     "openapi:check": "tsx src/scripts/check-openapi.ts",
     "analysis:run-once": "tsx src/scripts/process-next-analysis-job.ts",
     "db:generate": "drizzle-kit generate",

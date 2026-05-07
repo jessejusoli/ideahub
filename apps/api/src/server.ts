@@ -5,6 +5,7 @@ import { config } from "./config";
 import { registerOpenApi } from "./openapi";
 import { registerBookmarkRoutes } from "./routes/bookmarks";
 import { registerCoreDocumentRoutes } from "./routes/core-documents";
+import { registerCorePluginRoutes } from "./routes/core-plugins";
 import { registerEntryRoutes } from "./routes/entries";
 import { registerGraphRoutes } from "./routes/graph";
 import { registerHealthRoutes } from "./routes/health";
@@ -39,6 +40,7 @@ export function buildServer() {
   void app.register(registerNavigationRoutes, { prefix: "/api" });
   void app.register(registerTagRoutes, { prefix: "/api" });
   void app.register(registerCoreDocumentRoutes, { prefix: "/api" });
+  void app.register(registerCorePluginRoutes, { prefix: "/api" });
   void app.register(registerBookmarkRoutes, { prefix: "/api" });
   void app.register(registerJobRoutes, { prefix: "/api" });
   void app.register(registerSearchRoutes, { prefix: "/api" });

@@ -26,6 +26,28 @@ This links to [[Beta Note|beta]] and [[Gamma Note]] with #core/tag.
     expect(parsed.wordCount).toBeGreaterThan(0);
   });
 
+  it("extracts footnote references and definitions", () => {
+    const parsed = parseMarkdown(`# Research note
+
+This claim needs a source.[^source] This one is missing a definition.[^todo]
+
+[^source]: Stored as a PostgreSQL-native footnote view.
+`);
+
+    expect(parsed.footnotes).toEqual([
+      {
+        id: "source",
+        definition: "Stored as a PostgreSQL-native footnote view.",
+        referenceCount: 1
+      },
+      {
+        id: "todo",
+        definition: null,
+        referenceCount: 1
+      }
+    ]);
+  });
+
   it("normalizes note titles and creates default paths", () => {
     expect(normalizeTitle("  My Note.md ")).toBe("my note");
     expect(toDefaultPath("Daily Note", "Journal/Daily")).toBe("Journal/Daily/Daily Note.md");

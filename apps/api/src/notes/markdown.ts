@@ -5,28 +5,56 @@ import type * as schema from "../db/schema";
 import { entries, entryTags, links, tags } from "../db/schema";
 
 export type EntryMetadata = {
-  kind?: "note" | "template" | "canvas" | "workspace" | "bookmark";
+  kind?:
+    | "note"
+    | "template"
+    | "canvas"
+    | "workspace"
+    | "bookmark"
+    | "audio"
+    | "publish"
+    | "sync-event"
+    | "web-viewer";
   path?: string;
   folder?: string;
   aliases?: string[];
   properties?: Record<string, unknown>;
   headings?: Array<{ level: number; text: string; slug: string }>;
+  footnotes?: Footnote[];
   wordCount?: number;
   characterCount?: number;
   backlinksReady?: boolean;
   canvas?: unknown;
   workspace?: unknown;
   bookmark?: unknown;
+  publish?: {
+    vaultId: string;
+    siteName: string;
+    slug: string;
+    noteIds: string[];
+  };
+  sync?: unknown;
+  webViewer?: {
+    url?: string;
+    embedAllowed?: boolean;
+  };
 };
 
 export type ParsedMarkdown = {
   properties: Record<string, unknown>;
   aliases: string[];
   headings: Array<{ level: number; text: string; slug: string }>;
+  footnotes: Footnote[];
   tags: string[];
   wikiLinks: Array<{ raw: string; target: string; alias: string | null }>;
   wordCount: number;
   characterCount: number;
+};
+
+export type Footnote = {
+  id: string;
+  definition: string | null;
+  referenceCount: number;
 };
 
 type Database = NodePgDatabase<typeof schema>;
@@ -35,6 +63,7 @@ type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 const WIKI_LINK_PATTERN = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g;
 const TAG_PATTERN = /(?:^|\s)#([a-zA-Z0-9_/-]{2,80})\b/g;
 const FRONTMATTER_PATTERN = /^---\n([\s\S]*?)\n---\n?/;
+const FOOTNOTE_REFERENCE_PATTERN = /\[\^([^\]\n]+)\]/g;
 
 export function normalizeTitle(value: string) {
   return value.trim().toLowerCase().replace(/\.md$/i, "").replace(/\s+/g, " ");
@@ -54,6 +83,7 @@ export function parseMarkdown(content: string): ParsedMarkdown {
     text: (match[2] ?? "").trim(),
     slug: slugify(match[2] ?? "")
   }));
+  const footnotes = parseFootnotes(body);
   const wikiLinks = Array.from(body.matchAll(WIKI_LINK_PATTERN)).map((match) => ({
     raw: match[0],
     target: (match[1] ?? "").trim(),
@@ -68,6 +98,7 @@ export function parseMarkdown(content: string): ParsedMarkdown {
     properties,
     aliases,
     headings,
+    footnotes,
     tags: Array.from(new Set(tags)).sort(),
     wikiLinks,
     wordCount: words.length,
@@ -100,6 +131,7 @@ export function buildMetadata(input: {
     aliases,
     properties,
     headings: parsed.headings,
+    footnotes: parsed.footnotes,
     wordCount: parsed.wordCount,
     characterCount: parsed.characterCount,
     backlinksReady: true
@@ -217,6 +249,59 @@ function parseAliases(value: unknown) {
   }
 
   return [];
+}
+
+function parseFootnotes(body: string): Footnote[] {
+  const lines = body.split("\n");
+  const definitionLineIndexes = new Set<number>();
+  const definitions = new Map<string, string>();
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = lines[index]?.match(/^\[\^([^\]\n]+)\]:\s*(.*)$/);
+
+    if (!match?.[1]) {
+      continue;
+    }
+
+    const id = match[1].trim();
+    const content = [match[2] ?? ""];
+    definitionLineIndexes.add(index);
+
+    for (
+      let nextIndex = index + 1;
+      nextIndex < lines.length && /^(?: {2,}|\t)/.test(lines[nextIndex] ?? "");
+      nextIndex += 1
+    ) {
+      content.push((lines[nextIndex] ?? "").trim());
+      definitionLineIndexes.add(nextIndex);
+      index = nextIndex;
+    }
+
+    definitions.set(id, content.join("\n").trim());
+  }
+
+  const bodyWithoutDefinitions = lines
+    .filter((_line, index) => !definitionLineIndexes.has(index))
+    .join("\n");
+  const referenceCounts = new Map<string, number>();
+
+  for (const match of bodyWithoutDefinitions.matchAll(FOOTNOTE_REFERENCE_PATTERN)) {
+    const id = match[1]?.trim();
+
+    if (!id) {
+      continue;
+    }
+
+    referenceCounts.set(id, (referenceCounts.get(id) ?? 0) + 1);
+  }
+
+  return Array.from(new Set([...referenceCounts.keys(), ...definitions.keys()]))
+    .sort((left, right) => left.localeCompare(right))
+    .map((id) => ({
+      id,
+      definition: definitions.get(id) ?? null,
+      referenceCount: referenceCounts.get(id) ?? 0
+    }));
 }
 
 function parseFrontmatter(content: string) {

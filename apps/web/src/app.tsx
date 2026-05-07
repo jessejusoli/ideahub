@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bookmark,
@@ -23,6 +23,8 @@ import {
 import { layers, layerLabels } from "@ideahub/shared";
 import { Button } from "./components/ui/button";
 import {
+  convertMarkdown,
+  createAudioEntry,
   createEntry,
   createBookmark,
   createNote,
@@ -31,9 +33,16 @@ import {
   createVault,
   composeNote,
   deleteBookmark,
+  executeSlashCommand,
   getExplorer,
   getBacklinks,
+  getBases,
+  getFootnotes,
   getOutgoingLinks,
+  getPagePreview,
+  getSlides,
+  getSyncState,
+  listSlashCommands,
   listBookmarks,
   listCommands,
   listNoteVersions,
@@ -43,6 +52,9 @@ import {
   moveNote,
   openRandomNote,
   openDailyNote,
+  openWebViewer,
+  publishVault,
+  pushSyncCheckpoint,
   quickSwitcher,
   restoreNoteVersion,
   updateNote,
@@ -66,6 +78,12 @@ export function App() {
   const [noteContent, setNoteContent] = useState(
     "# New linked note\n\nWrite Markdown with [[wiki links]], #tags, and properties.\n"
   );
+  const [audioTranscript, setAudioTranscript] = useState("");
+  const [webViewerUrl, setWebViewerUrl] = useState("https://obsidian.md");
+  const [coreStatus, setCoreStatus] = useState("Core plugin actions are ready.");
+  const [isRecording, setIsRecording] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const [captures, setCaptures] = useState<CapturedEntry[]>([]);
 
   const vaultsQuery = useQuery({
@@ -132,6 +150,41 @@ export function App() {
     enabled: Boolean(activeNoteId)
   });
 
+  const footnotesQuery = useQuery({
+    queryKey: ["notes", activeNoteId, "footnotes"],
+    queryFn: () => getFootnotes(activeNoteId),
+    enabled: Boolean(activeNoteId)
+  });
+
+  const basesQuery = useQuery({
+    queryKey: ["bases", activeVaultId],
+    queryFn: () => getBases(activeVaultId),
+    enabled: Boolean(activeVaultId)
+  });
+
+  const pagePreviewQuery = useQuery({
+    queryKey: ["page-preview", activeVaultId, activeNoteId],
+    queryFn: () => getPagePreview({ vaultId: activeVaultId, noteId: activeNoteId }),
+    enabled: Boolean(activeVaultId && activeNoteId)
+  });
+
+  const slashCommandsQuery = useQuery({
+    queryKey: ["slash-commands"],
+    queryFn: listSlashCommands
+  });
+
+  const slidesQuery = useQuery({
+    queryKey: ["slides", activeNoteId],
+    queryFn: () => getSlides(activeNoteId),
+    enabled: Boolean(activeNoteId)
+  });
+
+  const syncStateQuery = useQuery({
+    queryKey: ["sync", activeVaultId],
+    queryFn: () => getSyncState(activeVaultId),
+    enabled: Boolean(activeVaultId)
+  });
+
   const createVaultMutation = useMutation({
     mutationFn: createVault,
     onSuccess: async (vault) => {
@@ -183,6 +236,7 @@ export function App() {
       await queryClient.invalidateQueries({ queryKey: ["explorer", activeVaultId] });
       await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "outgoing"] });
       await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "backlinks"] });
+      await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "footnotes"] });
       await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "versions"] });
     }
   });
@@ -215,6 +269,7 @@ export function App() {
       await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "versions"] });
       await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "outgoing"] });
       await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "backlinks"] });
+      await queryClient.invalidateQueries({ queryKey: ["notes", note.id, "footnotes"] });
     }
   });
 
@@ -271,6 +326,53 @@ export function App() {
     }
   });
 
+  const audioEntryMutation = useMutation({
+    mutationFn: createAudioEntry,
+    onSuccess: async (capture) => {
+      setCaptures((current) => [capture, ...current]);
+      setAudioTranscript("");
+      setCoreStatus("Audio entry captured and queued.");
+    }
+  });
+
+  const convertMarkdownMutation = useMutation({
+    mutationFn: () => convertMarkdown(noteContent, "generic"),
+    onSuccess: (result) => {
+      setNoteContent(result.convertedContent);
+      setCoreStatus(`Format converter applied: ${result.changes.join(" ")}`);
+    }
+  });
+
+  const slashCommandMutation = useMutation({
+    mutationFn: executeSlashCommand,
+    onSuccess: (result) => {
+      setNoteContent((current) => `${current.trim()}\n\n${result.insertion}\n`);
+      setCoreStatus(`Slash command inserted: ${result.description}`);
+    }
+  });
+
+  const publishMutation = useMutation({
+    mutationFn: publishVault,
+    onSuccess: (state) => {
+      setCoreStatus(`Publish updated with ${state.publicNotes.length} public notes.`);
+    }
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: pushSyncCheckpoint,
+    onSuccess: async (state) => {
+      setCoreStatus(`Sync checkpoint accepted at ${state.serverVersion}.`);
+      await queryClient.invalidateQueries({ queryKey: ["sync", activeVaultId] });
+    }
+  });
+
+  const webViewerMutation = useMutation({
+    mutationFn: openWebViewer,
+    onSuccess: (document) => {
+      setCoreStatus(`Web viewer saved: ${document.url}`);
+    }
+  });
+
   const statusText = useMemo(() => {
     if (createEntryMutation.isPending) {
       return "Capturing thought and queueing analysis";
@@ -291,6 +393,49 @@ export function App() {
     setNoteTitle(note.title ?? "");
     setNotePath(note.path ?? "");
     setNoteContent(note.content);
+  }
+
+  async function startAudioRecording() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    audioChunksRef.current = [];
+    recorderRef.current = recorder;
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+    recorder.onstop = () => {
+      for (const track of stream.getTracks()) {
+        track.stop();
+      }
+      const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (!activeVaultId) {
+          return;
+        }
+
+        audioEntryMutation.mutate({
+          vaultId: activeVaultId,
+          projectId: activeProjectId || undefined,
+          title: "Browser audio recording",
+          transcript: audioTranscript || undefined,
+          audioData: String(reader.result ?? ""),
+          mimeType: blob.type
+        });
+      };
+      reader.readAsDataURL(blob);
+    };
+    recorder.start();
+    setIsRecording(true);
+    setCoreStatus("Recording audio in the browser.");
+  }
+
+  function stopAudioRecording() {
+    recorderRef.current?.stop();
+    recorderRef.current = null;
+    setIsRecording(false);
   }
 
   function runCommand(commandId: string) {
@@ -693,6 +838,195 @@ export function App() {
             </div>
           </section>
 
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <FileText className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-lg font-semibold text-slate-950">Footnotes</h2>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              {(footnotesQuery.data?.footnotes ?? []).map((footnote) => (
+                <div
+                  key={footnote.id}
+                  className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">[^{footnote.id}]</span>
+                    <span className="text-xs text-slate-500">
+                      {footnote.referenceCount} reference
+                      {footnote.referenceCount === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-slate-600">
+                    {footnote.definition ?? "Definition pending"}
+                  </p>
+                </div>
+              ))}
+            </div>
+            {activeNoteId && footnotesQuery.data?.footnotes.length === 0 ? (
+              <p className="text-sm text-slate-500">No footnotes in this note yet.</p>
+            ) : null}
+          </section>
+
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+              <Command className="h-5 w-5 text-emerald-700" />
+              <h2 className="text-lg font-semibold text-slate-950">Core plugins</h2>
+            </div>
+            <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {coreStatus}
+            </p>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-medium text-slate-900">Audio recorder</div>
+                <textarea
+                  className="mb-2 min-h-20 w-full rounded-md border border-slate-300 p-2 text-sm"
+                  value={audioTranscript}
+                  onChange={(event) => setAudioTranscript(event.target.value)}
+                  placeholder="Optional transcript"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => void startAudioRecording()}
+                    disabled={!activeVaultId || isRecording || audioEntryMutation.isPending}
+                  >
+                    Record
+                  </Button>
+                  <Button size="sm" onClick={stopAudioRecording} disabled={!isRecording}>
+                    Stop
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-medium text-slate-900">Bases</div>
+                <div className="max-h-32 space-y-1 overflow-auto text-sm">
+                  {(basesQuery.data?.rows ?? []).slice(0, 5).map((row) => (
+                    <div key={row.id} className="flex justify-between gap-3">
+                      <span className="truncate">{row.title ?? row.path ?? "Untitled"}</span>
+                      <span className="text-xs text-slate-500">{row.wordCount} words</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-medium text-slate-900">Format converter</div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => convertMarkdownMutation.mutate()}
+                  disabled={!noteContent.trim() || convertMarkdownMutation.isPending}
+                >
+                  Normalize note
+                </Button>
+              </div>
+
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-medium text-slate-900">Page preview</div>
+                <p className="line-clamp-4 text-sm text-slate-600">
+                  {pagePreviewQuery.data?.note?.excerpt ?? "Select a note to preview it."}
+                </p>
+              </div>
+
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-medium text-slate-900">Slash commands</div>
+                <div className="flex flex-wrap gap-2">
+                  {(slashCommandsQuery.data?.commands ?? []).map((command) => (
+                    <Button
+                      key={command.id}
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        slashCommandMutation.mutate({
+                          vaultId: activeVaultId || undefined,
+                          noteId: activeNoteId || undefined,
+                          commandId: command.id
+                        })
+                      }
+                      disabled={slashCommandMutation.isPending}
+                    >
+                      {command.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-medium text-slate-900">Slides</div>
+                <p className="text-sm text-slate-600">
+                  {slidesQuery.data?.slides.length ?? 0} slide
+                  {slidesQuery.data?.slides.length === 1 ? "" : "s"} from active note.
+                </p>
+              </div>
+
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-medium text-slate-900">Publish</div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    publishMutation.mutate({
+                      vaultId: activeVaultId,
+                      siteName: "IdeaHub Public",
+                      slug: "ideahub-public",
+                      noteIds: (notesQuery.data?.notes ?? []).slice(0, 10).map((note) => note.id)
+                    })
+                  }
+                  disabled={!activeVaultId || publishMutation.isPending}
+                >
+                  Publish vault sample
+                </Button>
+              </div>
+
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-2 text-sm font-medium text-slate-900">Sync</div>
+                <p className="mb-2 text-xs text-slate-500">
+                  Server version {syncStateQuery.data?.serverVersion ?? "pending"}
+                </p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    syncMutation.mutate({
+                      vaultId: activeVaultId,
+                      clientId: "web-workspace",
+                      changes: []
+                    })
+                  }
+                  disabled={!activeVaultId || syncMutation.isPending}
+                >
+                  Push checkpoint
+                </Button>
+              </div>
+
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3 xl:col-span-2">
+                <div className="mb-2 text-sm font-medium text-slate-900">Web viewer</div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 px-3 text-sm"
+                    value={webViewerUrl}
+                    onChange={(event) => setWebViewerUrl(event.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() =>
+                      webViewerMutation.mutate({
+                        vaultId: activeVaultId,
+                        url: webViewerUrl
+                      })
+                    }
+                    disabled={!activeVaultId || webViewerMutation.isPending}
+                  >
+                    Open URL
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section className="grid gap-6 xl:grid-cols-2">
             <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-2">
@@ -970,12 +1304,20 @@ function MarkdownPreview({ content }: { content: string }) {
 }
 
 function renderInlineMarkdown(value: string) {
-  const parts = value.split(/(\[\[[^\]]+\]\]|#[a-zA-Z0-9_/-]{2,80})/g);
+  const parts = value.split(/(\[\[[^\]]+\]\]|\[\^[^\]]+\]|#[a-zA-Z0-9_/-]{2,80})/g);
 
   return parts.map((part, index) => {
     if (part.startsWith("[[") && part.endsWith("]]")) {
       return (
         <span key={index} className="rounded bg-emerald-100 px-1 font-medium text-emerald-800">
+          {part}
+        </span>
+      );
+    }
+
+    if (part.startsWith("[^") && part.endsWith("]")) {
+      return (
+        <span key={index} className="rounded bg-violet-100 px-1 font-medium text-violet-800">
           {part}
         </span>
       );

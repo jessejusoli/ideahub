@@ -8,12 +8,18 @@ The MCP server exists to let AI tools interact with IdeaHub through a stable pro
 
 ## Initial Tools
 
-| Tool                     | Purpose                                         |
-| ------------------------ | ----------------------------------------------- |
-| `ideahub.health`         | Check API availability.                         |
-| `ideahub.searchSemantic` | Search entries through the semantic search API. |
-| `ideahub.getEntry`       | Fetch an entry by ID.                           |
-| `ideahub.createEntry`    | Declared placeholder for future entry creation. |
+| Tool                      | Purpose                                         |
+| ------------------------- | ----------------------------------------------- |
+| `ideahub.health`          | Check API availability.                         |
+| `ideahub.searchSemantic`  | Search entries through the semantic search API. |
+| `ideahub.getEntry`        | Fetch an entry by ID.                           |
+| `ideahub.createEntry`     | Create a text entry through the public API.     |
+| `ideahub.getFootnotes`    | Fetch footnotes for a Markdown note.            |
+| `ideahub.getBases`        | Query a vault as a Bases-style property view.   |
+| `ideahub.convertMarkdown` | Normalize imported Markdown.                    |
+| `ideahub.getPagePreview`  | Fetch a note preview.                           |
+| `ideahub.getSlides`       | Render a note as slides.                        |
+| `ideahub.getSyncState`    | Fetch server-centric sync state.                |
 
 Upcoming MCP tools should follow the new note-first API surface:
 
@@ -22,6 +28,7 @@ Upcoming MCP tools should follow the new note-first API surface:
 - `ideahub.createNote`
 - `ideahub.updateNote`
 - `ideahub.getBacklinks`
+- `ideahub.getFootnotes`
 - `ideahub.openDailyNote`
 - `ideahub.getExplorer`
 - `ideahub.quickSwitcher`

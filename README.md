@@ -65,8 +65,8 @@ The foundation now includes a working capture path:
 - Approve or reject suggestions through the review API.
 - Use the web capture workspace against the Fastify API.
 - Create and edit canonical PostgreSQL Markdown notes.
-- Parse `[[wiki links]]`, `#tags`, frontmatter properties, headings, word count,
-  outgoing links, backlinks, and unlinked mentions.
+- Parse `[[wiki links]]`, footnotes, `#tags`, frontmatter properties, headings,
+  word count, outgoing links, backlinks, and unlinked mentions.
 - Open daily notes and store templates, JSON Canvas documents, and workspaces.
 - Browse the logical PostgreSQL file explorer by folder/path.
 - Move or rename notes without making files the source of truth.
@@ -78,6 +78,9 @@ The foundation now includes a working capture path:
   graph, and external references.
 - Create random, unique timestamp, and composed notes without relying on files as
   the source of truth.
+- Use MVP surfaces for the remaining Obsidian core plugins: audio capture,
+  Bases-style property views, format conversion, page previews, slash commands,
+  slides, Publish, Sync, and web viewer references.
 
 The Obsidian core-feature parity target is tracked in
 [`docs/obsidian-coverage.md`](docs/obsidian-coverage.md).
@@ -171,6 +174,11 @@ opening, and the first command registry surface.
 The third parity milestone adds **Command Palette + Bookmarks + Note
 Utilities**: executable command registry actions, PostgreSQL-native bookmarks,
 random note, unique timestamp note, and note composition.
+
+The core-completion MVP adds first working surfaces for **Audio Recorder**,
+**Bases**, **Format Converter**, **Footnotes View**, **Page Preview**,
+**Publish**, **Slash Commands**, **Slides**, **Sync**, and **Web Viewer** while
+keeping PostgreSQL as the canonical source of truth.
 
 Future versions may explore multidimensional views inspired by layers, cubes,
 molecular structures, and dynamic project states. The MVP will start with the

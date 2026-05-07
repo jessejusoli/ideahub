@@ -29,11 +29,12 @@ http://localhost:3333/api
 ```
 
 The current production-like bundle includes the first Obsidian core coverage
-milestones, **Editor + Links**, **Explorer + Recovery + Quick Switcher**, and
-**Command Palette + Bookmarks + Note Utilities**:
+milestones, **Editor + Links**, **Explorer + Recovery + Quick Switcher**,
+**Command Palette + Bookmarks + Note Utilities**, and the **Core Completion MVP**:
 
 - PostgreSQL-canonical Markdown notes through `/api/notes`.
-- Wiki-link, backlink, tag, property, outline, word-count, and text-search APIs.
+- Wiki-link, backlink, footnote, tag, property, outline, word-count, and
+  text-search APIs.
 - Daily notes, templates, JSON Canvas storage, graph data, workspace storage,
   and Markdown import/export routes.
 - The web workspace editor, note explorer, preview, outgoing-links panel, and
@@ -41,6 +42,8 @@ milestones, **Editor + Links**, **Explorer + Recovery + Quick Switcher**, and
 - Logical folder/path explorer, note move/rename, recovery version restore,
   quick switcher, and command registry surfaces.
 - PostgreSQL-native bookmarks plus random, unique, and composed note commands.
+- MVP surfaces for audio capture, Bases, format conversion, page preview, slash
+  commands, slides, Publish, Sync, and Web Viewer.
 
 No additional runtime environment variable or database service is required for
 this milestone. The implementation reuses the existing API/Web images,

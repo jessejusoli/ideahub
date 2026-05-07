@@ -1,5 +1,6 @@
 import {
   analyzeEntrySchema,
+  createAudioEntrySchema,
   createEntrySchema,
   layers,
   linkTypes,
@@ -41,11 +42,6 @@ const createEntryResponseSchema = z.object({
     status: z.literal("pending_analysis")
   }),
   job: queuedJobSchema,
-  message: z.string()
-});
-
-const notImplementedSchema = z.object({
-  code: z.string(),
   message: z.string()
 });
 
@@ -232,17 +228,91 @@ export const registerEntryRoutes: FastifyPluginAsyncZod = async (app) => {
     {
       schema: {
         tags: ["Entries"],
-        summary: "Create an audio entry",
+        summary: "Create an audio entry with optional transcript",
+        body: createAudioEntrySchema,
         response: {
-          501: notImplementedSchema
+          202: createEntryResponseSchema
         }
       }
     },
-    async (_request, reply) =>
-      reply.code(501).send({
-        code: "AUDIO_PIPELINE_PENDING",
-        message: "Audio upload and transcription are planned for the ingestion pipeline phase."
-      })
+    async (request, reply) => {
+      const transcript =
+        request.body.transcript ??
+        "[Audio recording captured. Transcription is pending provider configuration.]";
+      const created = await db.transaction(async (tx) => {
+        const [entry] = await tx
+          .insert(entries)
+          .values({
+            vaultId: request.body.vaultId,
+            projectId: request.body.projectId ?? null,
+            title: request.body.title ?? "Audio recording",
+            content: transcript,
+            source: "voice",
+            status: "pending_analysis",
+            metadata: {
+              kind: "audio",
+              audio: {
+                mimeType: request.body.mimeType,
+                durationSeconds: request.body.durationSeconds ?? null,
+                hasInlineAudioData: Boolean(request.body.audioData),
+                transcriptionStatus: request.body.transcript ? "provided" : "pending"
+              }
+            }
+          })
+          .returning();
+
+        if (!entry) {
+          throw new Error("Failed to create audio entry.");
+        }
+
+        await tx.insert(entryVersions).values({
+          entryId: entry.id,
+          version: 1,
+          title: entry.title,
+          content: entry.content,
+          changeReason: "Initial audio capture"
+        });
+
+        const [job] = await tx
+          .insert(llmJobs)
+          .values({
+            entryId: entry.id,
+            type: request.body.transcript ? "analysis" : "transcription",
+            status: "queued",
+            input: {
+              reason: "audio_entry_created",
+              mimeType: request.body.mimeType,
+              durationSeconds: request.body.durationSeconds ?? null,
+              audioData: request.body.audioData ? "[inline audio data omitted]" : null
+            }
+          })
+          .returning();
+
+        if (!job) {
+          throw new Error("Failed to queue audio job.");
+        }
+
+        return { entry, job };
+      });
+
+      return reply.code(202).send({
+        entry: {
+          id: created.entry.id,
+          vaultId: created.entry.vaultId,
+          projectId: created.entry.projectId ?? undefined,
+          title: created.entry.title ?? undefined,
+          content: created.entry.content,
+          source: "voice",
+          status: "pending_analysis"
+        },
+        job: {
+          id: created.job.id,
+          type: created.job.type,
+          status: "queued"
+        },
+        message: "Audio entry captured in PostgreSQL and queued for transcription or analysis."
+      });
+    }
   );
 
   app.get(
